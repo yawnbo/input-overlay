@@ -1,2 +1,7 @@
 TODO.md
 .idea/
+ws-server/build/
+ws-server/dist/
+input-overlay-ws.spec
+ws-server/config.json
+ws-server/services/__pycache__

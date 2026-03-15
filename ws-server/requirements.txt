@@ -1,0 +1,8 @@
+websockets>=12.0
+pynput>=1.7.6
+pystray>=0.19.5
+Pillow>=10.0.0
+pyperclip>=1.8.2
+PyQt6>=6.6.0
+hidapi>=0.14.0
+winotify>=1.1.0

@@ -1,8 +1,42 @@
 //gup
 import { RAW_CODE_TO_KEY_NAME, MOUSE_BUTTON_MAP } from "../consts.js";
 
+/**
+ * @typedef {Object} KeyboardInputEvent
+ * @property {"key_pressed" | "key_released"} event_type
+ * @property {number} rawcode
+ */
+
+/**
+ * @typedef {Object} MouseMoveEvent
+ * @property {"mouse_moved" | "mouse_dragged"} event_type
+ */
+
+/**
+ * @typedef {Object} MouseButtonEvent
+ * @property {"mouse_pressed" | "mouse_released"} event_type
+ * @property {number} button
+ */
+
+/**
+ * @typedef {Object} MouseWheelEvent
+ * @property {"mouse_wheel"} event_type
+ * @property {number} rotation
+ */
+
+/**
+ * @typedef {Object} AnalogDepthEvent
+ * @property {"analog_depth"} event_type
+ * @property {number} depth
+ * @property {number} [rawcode]
+ */
+
+/**
+ * @typedef {KeyboardInputEvent | MouseMoveEvent | MouseButtonEvent | MouseWheelEvent | AnalogDepthEvent} InputEvent
+ */
+
 export class WebSocketManager {
-    constructor(url, statusEl, visualizer, authToken) {
+    constructor(url, statusEl, visualizer, authToken, analogMode) {
         this.wsUrl = url;
         this.statusEl = statusEl;
         this.visualizer = visualizer;
@@ -12,8 +46,11 @@ export class WebSocketManager {
         this.connectionAttempts = 0;
         this.authenticated = false;
 
+        this.analogMode = analogMode || false;
+
         this.messageHistory = [];
         this.keyStates = {};
+        this.keyDepths = {};
         this.HISTORY_MAX_LENGTH = 100;
     }
 
@@ -88,12 +125,15 @@ export class WebSocketManager {
     }
 
     getMappedKeyId(event) {
-        if (event.event_type.startsWith("key_")) {
-            return {
-                id: `k_${event.rawcode}`,
-                name: RAW_CODE_TO_KEY_NAME[event.rawcode],
-                type: "key"
-            };
+        if (event.event_type.startsWith("key_") || event.event_type === "analog_depth") {
+            // analog_depth events should also contain rawcode
+            if (event.rawcode !== undefined) {
+                return {
+                    id: `k_${event.rawcode}`,
+                    name: RAW_CODE_TO_KEY_NAME[event.rawcode],
+                    type: "key"
+                };
+            }
         } else if (event.event_type.startsWith("mouse_") && event.button) {
             return {
                 id: `m_${event.button}`,
@@ -141,6 +181,53 @@ export class WebSocketManager {
                 if (elements && elements.length > 0) {
                     elements.forEach(el => {
                         this.visualizer.updateElementState(el, keyName, isActive, activeSet);
+
+                        if (this.visualizer.analogMode && type === "key" && keyName.startsWith("key_")) {
+                            if (this.keyDepths[keyId] !== undefined) {
+                                const depth = this.keyDepths[keyId];
+                                const depthThreshold = 0.02;
+                                const effectiveDepth = depth < depthThreshold ? 0 : depth;
+                                const fillHeight = effectiveDepth * 100;
+                                const maxScale = this.visualizer.pressScaleValue || 1.05;
+                                const scale = 1 + ((maxScale - 1) * effectiveDepth);
+
+                                el.style.setProperty('transform', `scale(${scale})`, 'important');
+
+                                const uniqueId = `${keyName}-${el.dataset.key || ''}`;
+                                let styleEl = document.getElementById(`analog-depth-${uniqueId}`);
+                                if (!styleEl) {
+                                    styleEl = document.createElement("style");
+                                    styleEl.id = `analog-depth-${uniqueId}`;
+                                    document.head.appendChild(styleEl);
+                                }
+
+                                const glowRadius = this.visualizer.glowRadius || '24px';
+                                const boxShadow = effectiveDepth > 0 ? `0 2px ${glowRadius} ${this.visualizer.activeColor}` : 'none';
+
+                                const dataKeyValue = el.dataset.key || keyName;
+                                styleEl.textContent = `
+                                [data-key="${dataKeyValue}"]::after {
+                                    height: ${fillHeight}% !important;
+                                    transition: height 0.1s cubic-bezier(0.4,0,0.2,1) !important;
+                                }
+                                [data-key="${dataKeyValue}"].analog-key {
+                                    border-color: ${this.visualizer.activeColor} !important;
+                                    box-shadow: ${boxShadow} !important;
+                                }
+                            `;
+                            }
+                        } else if (type === "mouse") {
+                            if (isActive) {
+                                const animDur = this.visualizer.animDuration || '0.15s';
+                                el.style.setProperty('transition', `all ${animDur} cubic-bezier(0.4,0,0.2,1)`, 'important');
+                                const maxScale = this.visualizer.pressScaleValue || 1.05;
+                                el.style.setProperty('transform', `scale(${maxScale})`, 'important');
+                            } else {
+                                const animDur = this.visualizer.animDuration || '0.15s';
+                                el.style.setProperty('transition', `all ${animDur} cubic-bezier(0.4,0,0.2,1)`, 'important');
+                                el.style.setProperty('transform', 'scale(1)', 'important');
+                            }
+                        }
                     });
                 }
             }
@@ -157,22 +244,17 @@ export class WebSocketManager {
             const event = JSON.parse(data);
             if (event.event_type === "mouse_moved" || event.event_type === "mouse_dragged") return;
 
+            if (event.event_type === "analog_depth") {
+                this.handleAnalogDepth(event);
+                return;
+            }
+
             if (event.event_type === "mouse_wheel") {
                 const dir = event.rotation;
                 if (this.visualizer.previewElements.scrollDisplay) {
                     this.visualizer.handleScroll(dir);
                 }
                 return;
-            }
-
-            if (event.event_type === "key_pressed" && this.visualizer.previewElements) {
-                const keyName = RAW_CODE_TO_KEY_NAME[event.rawcode];
-                if (keyName && this.visualizer.scrollerAliases && this.visualizer.scrollerAliases.has(keyName)) {
-                    const scrollDir = this.visualizer.scrollerAliases.get(keyName);
-                    if (this.visualizer.previewElements.scrollDisplay) {
-                        this.visualizer.handleScroll(scrollDir);
-                    }
-                }
             }
 
             this.messageHistory.push(event);
@@ -187,6 +269,54 @@ export class WebSocketManager {
         } catch (err) { }
     }
 
+    handleAnalogDepth(event) {
+        if (!this.visualizer.previewElements || !this.visualizer.analogMode) return;
+
+        const keyInfo = this.getMappedKeyId(event);
+        if (!keyInfo || !keyInfo.name || !keyInfo.name.startsWith("key_")) return;
+
+        const depth = event.depth || 0;
+        const keyId = keyInfo.id;
+
+        this.keyDepths[keyId] = depth;
+
+        const elements = this.visualizer.previewElements.keyElements.get(keyInfo.name);
+        if (!elements || elements.length === 0) return;
+
+        const depthThreshold = 0.15;
+        const effectiveDepth = depth < depthThreshold ? 0 : depth;
+        const fillHeight = effectiveDepth * 100;
+        const maxScale = this.visualizer.pressScaleValue || 1.05;
+        const scale = 1 + ((maxScale - 1) * effectiveDepth);
+
+        elements.forEach(el => {
+            const uniqueId = `${keyInfo.name}-${el.dataset.key || ''}`;
+            let styleEl = document.getElementById(`analog-depth-${uniqueId}`);
+            if (!styleEl) {
+                styleEl = document.createElement("style");
+                styleEl.id = `analog-depth-${uniqueId}`;
+                document.head.appendChild(styleEl);
+            }
+
+            const glowRadius = this.visualizer.glowRadius || '24px';
+            const boxShadow = effectiveDepth > 0 ? `0 2px ${glowRadius} ${this.visualizer.activeColor}` : 'none';
+
+            el.style.setProperty('transform', `scale(${scale})`, 'important');
+
+            const dataKeyValue = el.dataset.key || keyInfo.name;
+            styleEl.textContent = `
+            [data-key="${dataKeyValue}"]::after {
+                height: ${fillHeight}% !important;
+                transition: height 0.1s cubic-bezier(0.4,0,0.2,1) !important;
+            }
+            [data-key="${dataKeyValue}"].analog-key {
+                border-color: ${this.visualizer.activeColor} !important;
+                box-shadow: ${boxShadow} !important;
+            }
+        `;
+        });
+    }
+
     clearStuckKeys() {
         if (!this.visualizer.previewElements) return;
 
@@ -195,6 +325,7 @@ export class WebSocketManager {
                 elements.forEach(el => {
                     el.classList.remove("active");
                     this.visualizer.activeElements.delete(el);
+                    el.style.transform = "";
                 });
             });
         };
@@ -216,5 +347,6 @@ export class WebSocketManager {
         this.visualizer.currentScrollCount = 0;
         this.messageHistory = [];
         this.keyStates = {};
+        this.keyDepths = {};
     }
 }

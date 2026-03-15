@@ -12,20 +12,47 @@ export class OverlayVisualiser {
         this.lastScrollDirection = null;
         this.scrollTimeout = null;
         this.Z_INDEX_COUNTER = 100;
+
+        this.analogMode = false;
     }
 
     updateElementState(el, keyName, isActive, activeSet) {
+        const isMouseButton = keyName.startsWith("mouse_") || keyName === "scroller";
+
         if (isActive) {
             if (!this.activeElements.has(el)) {
                 el.classList.add("active");
                 this.activeElements.add(el);
                 this.Z_INDEX_COUNTER++;
                 el.style.zIndex = this.Z_INDEX_COUNTER.toString();
+
+                if (this.analogMode && keyName.startsWith("key_")) {
+                    el.classList.add("analog-key");
+                } else {
+                    const animDur = this.animDuration || '0.15s';
+                    el.style.setProperty('transition', `all ${animDur} cubic-bezier(0.4,0,0.2,1)`, 'important');
+                    const scale = this.pressScaleValue || 1.05;
+                    el.style.setProperty('transform', `scale(${scale})`, 'important');
+                }
             }
             activeSet.add(keyName);
         } else {
             el.classList.remove("active");
+            el.classList.remove("analog-key");
             this.activeElements.delete(el);
+
+            if (this.analogMode && keyName.startsWith("key_")) {
+                const afterStyle = document.getElementById(`analog-depth-${el.dataset.key}`);
+                if (afterStyle) {
+                    afterStyle.remove();
+                }
+                el.style.setProperty('transform', 'scale(1)', 'important');
+            } else {
+                const animDur = this.animDuration || '0.15s';
+                el.style.setProperty('transition', `all ${animDur} cubic-bezier(0.4,0,0.2,1)`, 'important');
+                el.style.setProperty('transform', 'scale(1)', 'important');
+            }
+
             const elementsMap = this.previewElements.keyElements.get(keyName) || this.previewElements.mouseElements.get(keyName);
             if (elementsMap) {
                 const anyActive = elementsMap.some(elem => this.activeElements.has(elem));
@@ -36,14 +63,19 @@ export class OverlayVisualiser {
         }
     }
 
-    applyStyles(opts) {
+    applyStyles(opts, configMode = false) {
         const pressscalevalue = parseInt(opts.pressscale) / 100;
         const animDuration = (0.15 * (100 / parseInt(opts.animationspeed))) + "s";
-
         const activeColorRgb = this.utils.hexToRgba(opts.activecolor, 1);
         const activeColorForGradient = activeColorRgb.replace(/, [\d.]+?\)/, ", 0.3)");
         const fontWeight = opts.boldfont ? 999 : 1;
         const gapModifier = (opts.gapmodifier / 100).toFixed(2);
+        this.analogMode = (opts.analogmode === true || opts.analogmode === "true" || opts.analogmode === "1") && !configMode;
+        this.pressScaleValue = pressscalevalue;
+        this.animDuration = animDuration;
+        this.activeColor = opts.activecolor;
+        this.activeBgColor = opts.activebgcolor;
+        this.glowRadius = opts.glowradius;
 
         this.utils.applyFontStyles(opts.fontfamily);
 
@@ -54,84 +86,123 @@ export class OverlayVisualiser {
             document.head.appendChild(styleEl);
         }
 
+        const activeTransform = this.analogMode
+            ? "translateY(-2px)"
+            : `translateY(-2px) scale(${pressscalevalue})`;
+
+        const transitionStyle = this.analogMode
+            ? `color ${animDuration} cubic-bezier(0.4,0,0.2,1), border-color ${animDuration} cubic-bezier(0.4,0,0.2,1), box-shadow ${animDuration} cubic-bezier(0.4,0,0.2,1), transform 0.05s cubic-bezier(0.4,0,0.2,1)`
+            : `all ${animDuration} cubic-bezier(0.4,0,0.2,1)`;
+
         styleEl.textContent = `
-        :root {
-            --active-color: ${opts.activecolor};
-            --font-weight: ${fontWeight};
-            --gap-modifier: ${gapModifier};
-        }
-        .key, .mouse-btn, .scroll-display {
-            border-radius: ${opts.borderradius}px !important;
-            color: ${opts.inactivecolor} !important;
-            background: ${opts.backgroundcolor} !important;
-            border-color: ${opts.outlinecolor} !important;
-            transition: all ${animDuration} cubic-bezier(0.4,0,0.2,1) !important;
-            position: relative !important;
-            font-weight: ${fontWeight} !important;
-        }
-        .key.active, .mouse-btn.active, .scroll-display.active {
-            border-color: ${opts.activecolor} !important;
-            box-shadow: 0 2px ${opts.glowradius}px ${opts.activecolor} !important;
-            color: ${opts.fontcolor} !important;
-            transform: translateY(-2px) scale(${pressscalevalue}) !important;
-            background: ${opts.activebgcolor} !important;
-        }
-        .key.active::before, .mouse-btn.active::before, .scroll-display.active::before {
-            background: linear-gradient(135deg, ${activeColorForGradient}, ${activeColorForGradient}) !important;
-        }
-
-        .key img, .mouse-btn img, .scroll-display img {
-            max-width: 200% !important;
-            max-height: 200% !important;
-            width: auto !important;
-            height: auto !important;
-            object-fit: contain !important;
-            display: block !important;
-            margin: auto !important;
-            pointer-events: none !important;
-        }
-        
-        .key, .mouse-btn, .scroll-display {
-            display: flex !important;
-            align-items: center !important;
-            justify-content: center !important;
-        }
-        
-        .scroll-arrow img {
-            max-width: 90% !important;
-            max-height: 90% !important;
-        }
-
-        .mouse-btn.mouse-side {
-            padding: 5px;
-        }
-        .mouse-btn.mouse-side span {
-            background: ${opts.backgroundcolor} !important;
-            border-color: ${opts.outlinecolor} !important;
-            color: ${opts.inactivecolor} !important;
-            width: 18px !important;
-            transition: all ${animDuration} cubic-bezier(0.4,0,0.2,1) !important;
-            display: flex !important;
-            align-items: center !important;
-            justify-content: center !important;
-        }
-        .mouse-btn.mouse-side span.active {
-            border-color: ${opts.activecolor} !important;
-            box-shadow: 0 0 ${opts.glowradius}px ${opts.activecolor} !important;
-            color: ${opts.fontcolor} !important;
-            background: ${opts.activebgcolor} !important;
-            transform: scale(${pressscalevalue}) !important;
-        }
-
-        .scroll-count {
-            color: ${opts.fontcolor} !important;
-            display: ${opts.hidescrollcombo ? "none" : "flex"} !important;
-            font-weight: ${fontWeight} !important;
-        }
-        .mouse-section {
-            display: ${opts.hidemouse ? "none" : "flex"} !important;
-        }
-    `;
+            :root {
+                --active-color: ${opts.activecolor};
+                --font-weight: ${fontWeight};
+                --gap-modifier: ${gapModifier};
+            }
+            .key, .mouse-btn, .scroll-display {
+                border-radius: ${opts.borderradius}px !important;
+                color: ${opts.inactivecolor} !important;
+                background: ${opts.backgroundcolor} !important;
+                border-color: ${opts.outlinecolor} !important;
+                transition: ${transitionStyle} !important;
+                position: relative !important;
+                font-weight: ${fontWeight} !important;
+            }
+            .key, .mouse-btn {
+                overflow: hidden !important;
+            }
+            .scroll-display {
+                overflow: visible !important;
+            }
+            .key::after, .mouse-btn::after {
+                content: '';
+                position: absolute;
+                bottom: 0;
+                left: 0;
+                right: 0;
+                height: 0%;
+                background: ${opts.activebgcolor};
+                transition: height 0.05s cubic-bezier(0.4,0,0.2,1);
+                z-index: -1;
+                pointer-events: none;
+            }
+            .key, .mouse-btn {
+                z-index: 1;
+            }
+            .key > *, .mouse-btn > * {
+                position: relative;
+                z-index: 2;
+            }
+            .key.active, .mouse-btn.active, .scroll-display.active {
+                color: ${opts.fontcolor} !important;
+                transform: ${activeTransform} !important;
+                /* Fix: Ensure border and glow apply to analog keys too */
+                border-color: ${opts.activecolor} !important;
+                box-shadow: 0 2px ${opts.glowradius}px ${opts.activecolor} !important;
+            }
+            /* Fix: Only apply solid background to non-analog active keys */
+            .key.active:not(.analog-key), .mouse-btn.active:not(.analog-key), .scroll-display.active:not(.analog-key) {
+                background: ${opts.activebgcolor} !important;
+            }
+            .key.active::before, .mouse-btn.active::before, .scroll-display.active::before {
+                background: linear-gradient(135deg, ${activeColorForGradient}, ${activeColorForGradient}) !important;
+            }
+            
+            .key img, .mouse-btn img, .scroll-display img {
+                max-width: 200% !important;
+                max-height: 200% !important;
+                width: auto !important;
+                height: auto !important;
+                object-fit: contain !important;
+                display: block !important;
+                margin: auto !important;
+                pointer-events: none !important;
+                position: relative;
+                z-index: 2;
+            }
+            
+            .key, .mouse-btn, .scroll-display {
+                display: flex !important;
+                align-items: center !important;
+                justify-content: center !important;
+            }
+            
+            .scroll-arrow img {
+                max-width: 90% !important;
+                max-height: 90% !important;
+            }
+            
+            .mouse-btn.mouse-side {
+                padding: 5px;
+            }
+            .mouse-btn.mouse-side span {
+                background: ${opts.backgroundcolor} !important;
+                border-color: ${opts.outlinecolor} !important;
+                color: ${opts.inactivecolor} !important;
+                width: 18px !important;
+                transition: all ${animDuration} cubic-bezier(0.4,0,0.2,1) !important;
+                display: flex !important;
+                align-items: center !important;
+                justify-content: center !important;
+            }
+            .mouse-btn.mouse-side span.active {
+                border-color: ${opts.activecolor} !important;
+                box-shadow: 0 0 ${opts.glowradius}px ${opts.activecolor} !important;
+                color: ${opts.fontcolor} !important;
+                background: ${opts.activebgcolor} !important;
+                transform: scale(${pressscalevalue}) !important;
+            }
+            
+            .scroll-count {
+                color: ${opts.fontcolor} !important;
+                display: ${opts.hidescrollcombo ? "none" : "flex"} !important;
+                font-weight: ${fontWeight} !important;
+            }
+            .mouse-section {
+                display: ${opts.hidemouse ? "none" : "flex"} !important;
+            }
+        `;
     }
 
     createKeyOrButtonElement(elementDef) {
@@ -428,6 +499,13 @@ export class OverlayVisualiser {
             if (!scrollDisplay.classList.contains("active")) {
                 this.Z_INDEX_COUNTER++;
                 scrollDisplay.style.zIndex = this.Z_INDEX_COUNTER.toString();
+
+                if (this.analogMode) {
+                    const animDur = this.animDuration || '0.15s';
+                    scrollDisplay.style.setProperty('transition', `color ${animDur} cubic-bezier(0.4,0,0.2,1), background ${animDur} cubic-bezier(0.4,0,0.2,1), border-color ${animDur} cubic-bezier(0.4,0,0.2,1), box-shadow ${animDur} cubic-bezier(0.4,0,0.2,1), transform 0.05s cubic-bezier(0.4,0,0.2,1)`, 'important');
+                    const scale = this.pressScaleValue || 1.05;
+                    scrollDisplay.style.setProperty('transform', `scale(${scale})`, 'important');
+                }
             }
             scrollDisplay.classList.add("active");
 
@@ -453,6 +531,9 @@ export class OverlayVisualiser {
             this.adjustScrollDisplays();
             els.scrollDisplays.forEach(display => {
                 display.classList.remove("active");
+                if (this.analogMode) {
+                    display.style.setProperty('transform', 'scale(1)', 'important');
+                }
             });
         }, 250);
     }

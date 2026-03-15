@@ -60,7 +60,16 @@
                                                 for the <b>input-overlay-ws</b> to use</li>
                                             <li>tip: you can also load previously saved urls using <b>load url</b>
                                                 button</li>
+                                            <li>tip: please check out the key whitelist inside <b>input-overlay-ws</b>
+                                                server settings and configure it to send your needed keys to the overlay
+                                            </li>
                                         </ul>
+                                        <blockquote class="cs-note"
+                                            style="border-left: 5px solid #5cf669; padding: 10px; margin: 15px -15px;">
+                                            🛈 This method supports hall effect keyboards. To enable support for them
+                                            check the corresponding checkbox in the configurator and additionally enable
+                                            it in your <b>input-overlay-ws</b> server settings<br>
+                                        </blockquote>
                                     </ol>
                                     <br>
                                     <h1>Option #2</h1>
@@ -70,14 +79,16 @@
                                                 plugin</a> in obs</li>
                                         <li>enable websocket server in plugin settings (not obs websocket, the plugin
                                             one)</li>
-                                        <li>check the address and port (usually its fine when its default, authentication is not possible so leave it empty)</li>
+                                        <li>check the address and port (usually its fine when its default,
+                                            authentication is not possible so leave it empty)</li>
                                         <li>restart obs</li>
                                         <li>copy the overlay url (⎘ copy url)</li>
                                         <li>create a new browser source in obs</li>
                                         <li>paste the url into the browser source</li>
                                         <blockquote class="cs-note"
                                             style="border-left: 5px solid #f65c5c; padding: 10px; margin: 15px -15px;">
-                                            🛈 while this method is easier since you dont have to worry about running the separate ws server, it lacks authentication.<br>
+                                            🛈 while this method is easier since you dont have to worry about running
+                                            the separate ws server, it lacks authentication.<br>
                                         </blockquote>
                                     </ol>
                                 </div>
@@ -488,10 +499,30 @@
                                 <div class="close-btn cs-btn" id="closePatchSheet"></div>
 
                                 <div class="patchnotes">
+                                    <!-- 2026-03-15 -->
+                                    <h1>2026-03-15</h1>
+                                    <h3>new new server</h3>
+                                    <li>added a slightly more complex ws server which has now a propper settings window and support for analog keyboards (analogsense sdk)</li>
+                                    <br>
+                                    <h3>bug fixes</h3>
+                                    <ul>
+                                        <li>i low key forgot what i was doing since it has been months. sorgi if something is still brokey,,.
+                                        </li>
+                                    </ul>
+                                    <br>
+                                    <h3>quality of life</h3>
+                                    <ul>
+                                        <li>added a deadlock preset</li>
+                                    </ul>
+                                    <br>
+
                                     <!-- 2025-12-27 -->
                                     <h1>2025-12-27</h1>
                                     <h3>new server</h3>
-                                    <li>added a very simple ws server which supports authentication and can be used without obs or with other recording software that supports browser sources. the input-overlay obs plugin will continue to work as before if you wish to continue using it</li>
+                                    <li>added a very simple ws server which supports authentication and can be used
+                                        without obs or with other recording software that supports browser sources. the
+                                        input-overlay obs plugin will continue to work as before if you wish to continue
+                                        using it</li>
                                     <br>
                                     <h3>bug fixes</h3>
                                     <ul>
@@ -700,15 +731,19 @@
                                         wasd
                                         + mouse</option>
                                     <option
-                                        value="https://overlay.girlglock.com/?cfg=eNplkt12k0AQx99lLvBGFAiEdjxcpDH90DTWJLV-1NOzwJJggU2BbVqvfAAfyAvfqa_gwNDKSdmb3w67_53_zIioTm9lpDJVBl6UDP3YSAvRC-5ZzTJCEV2vSqWLmMO2aFboGXw2XHHY9cN4aBtK11ladApu0iwjUUXNgaT9jFWmtoHjGqWIU10FlrEpZVVVkchkYNuWUW2kjIOBZRkrsclVnCappIdpH6osbuQC21inscyVruiKEemqVvlU3NPzc7W1g2t5fyVJcCMRJosxvGwCNoLN5CA4TAOEAZOL4DJ5CB7TEGHI5CP4THsIe0z7CPtMFoLFlKeFrhBM3skbLTLaBrxtSlltRERJHYzG7xdno_EEUDvmcNeB0zqoRYiwHB0AbslsK3GD8JHFtggX3SvkkalEmDPVdJHpHuELk0Y4Z0oRTpgUwgemDcIZUyaT-iosKVlJMt866XS17kW_9xxlolojXF62Vp41Y9BaoVZUmYquEcajswWgvKtLYT7ZEggjVqRqLZhihLdMCcIh0wrhiIlePGb6gfCOidTfdxYQpp2ezNNm-AqENxy50aqmkr3oilfUkso2mS0nc6qz6Zi-p3c9uMFjXaK6JO3F8cnhkk97upX5ifCVBe8QPjNFZJbpFuFTVzBqPRMlNOtmBuG0u6HynErx8Pf3w59fXVtkmSoqxavODhf7da8p1TpN6qec9MB0n_XA28l_vJxPe0PV_NimlNDFyWwnLDKSHk2XvXA3wd30bk1f_8_l8fjRvHchlwWN3ulkdt4Ltsf72Wjb9J1_gWiG6g">
+                                        value="https://overlay.girlglock.com/?cfg=eNplks12mzAQhd9lFnRTWsBgkulh4bjOT-O4qe00_UlPjgBh0wByAMVJV32APlAXfae8QgeGpDQxm09j6WruHYmoTm9kpDJVBl6UDP3YSAvRK-5YzWeEIrpalUoXMZdt0XyhZ_DecMVl1w_joW0oXWdp0Sm4SfMZiSpqLiTtz1hlahs4rlGKONVVYBmbUlZVFYlMBrZtGdVGyjgYWJaxEptcxWmSSrqY1qHK4kYusI11Gstc6YqOGJGuapVPxR1dP1dbO7iSd5eSBDcSYbIYw8umYCPYTA6CwzRAGDC5CC6Th-AxDRGGTD6Cz7SDsMO0i7DLZCFYTHla6ArB5JW81iKjZcDLJspqIyJqam80Pl6cjsYTQO2Yw6cOnNZBLUKE5WgPcEtmW4lrhA8stkU4724hj0wlwpyppoNMdwifmTTCGVOKcMSkEN4zbRBOmTKZ1JdhSc1KkvnaSaerda_6recoE9Ua4eKitfJsGIPWCo2iylR0hTAenS4A5W1dCvPRlkAYsSKltWCKEd4yJQj7TCuEAya68ZDpO8I7JlI_7iwgTDs9mafN4ysQ3nDlWquaInvRhVfUkmKbzJaTOeVsOqbv6ace3OAhl2qdJmR_cXi0v-Ttnm51fiB8YcVbhE9MEbllukH42CVGs2eijmbdo0E46U6oPKcs7v_8uv_9s5uLLFNFWbzq_HDar3tT-b8nPTDdZ0PwHg1EdUnhjJfzae9VNX9sU2ro_Gj2pCwykh5Nl71y94S757s1ff2vl4ftB_PegVwW9PZOJrOzXrHd3u9G26bv_AUh_odT">
                                         full
                                         qwerty</option>
+                                    <option
+                                        value="https://overlay.girlglock.com/?cfg=eNptj9FOwjAYhe99jP-iV1uyji3DxpoAQjTBRIHES9Ot3WjoKLYbhAcwPobxDX0ER6sG0F1sZ1__c_5TVjRyKwqttKGC837eQ3LNjmDGszgVKGfFqjK6XXOPI_ckGfKzefWNyziLYqTbRsn1aUKp183JnkrpHY2QYVy2liYR2hhhrS2YEhTjFNmNEJzGaYQqtqk1l6UUhuIoclElq6Xa06E2YmtRrhU_UIpR0dpG11O270rM9A5T3tb1_hzHdCX2zw3LCSwGQyAtDrPggF4IPIJTOwJPXgkCY68MgRmcZ_VclhJlY5eybAjMb-8miy4zDrFzMQID77fdoVecwI1XJYHJn8zk_9rp76qiMYrAaDGbuvJp8HPAVNdgMF0cYbthRXeH-cNgNO5wL0zik-B73VpB68PbRRAInbsX2MJopUR37bBD8Pn-8eo_b24Ax4F3GVktj2wXh62YwJWfunQtEgLX_r8ffAGQ-dZl">
+                                        deadlock by @susuFPS
+                                    </option>
                                 </select>
                             </div>
                         </div>
                         <div class="cs-form-group">
                             <label class="cs-input__label" for="customLayoutRow1">top row</label>
-                            <div class="nested-grid-2" style="grid-template-columns: repeat(2, 86%); margin-top: 0px;">
+                            <div class="nested-grid-2" style="grid-template-columns: repeat(2, 86%); margin-top: 0;">
                                 <textarea class="cs-input config-input" id="customLayoutRow1" rows="2"
                                     spellcheck="false"></textarea>
                                 <button class="cs-btn" style="max-width: 40px;" id="addKey1">+</button>
@@ -716,7 +751,7 @@
                         </div>
                         <div class="cs-form-group">
                             <label class="cs-input__label" for="customLayoutRow2">qwery row</label>
-                            <div class="nested-grid-2" style="grid-template-columns: repeat(2, 86%); margin-top: 0px;">
+                            <div class="nested-grid-2" style="grid-template-columns: repeat(2, 86%); margin-top: 0;">
                                 <textarea class="cs-input config-input" id="customLayoutRow2" rows="2"
                                     spellcheck="false"></textarea>
                                 <button class="cs-btn" style="max-width: 40px;" id="addKey2">+</button>
@@ -724,7 +759,7 @@
                         </div>
                         <div class="cs-form-group">
                             <label class="cs-input__label" for="customLayoutRow3">asdf row</label>
-                            <div class="nested-grid-2" style="grid-template-columns: repeat(2, 86%); margin-top: 0px;">
+                            <div class="nested-grid-2" style="grid-template-columns: repeat(2, 86%); margin-top: 0;">
                                 <textarea class="cs-input config-input" id="customLayoutRow3" rows="2"
                                     spellcheck="false"></textarea>
                                 <button class="cs-btn" style="max-width: 40px;" id="addKey3">+</button>
@@ -732,7 +767,7 @@
                         </div>
                         <div class="cs-form-group">
                             <label class="cs-input__label" for="customLayoutRow4">zxcv row</label>
-                            <div class="nested-grid-2" style="grid-template-columns: repeat(2, 86%); margin-top: 0px;">
+                            <div class="nested-grid-2" style="grid-template-columns: repeat(2, 86%); margin-top: 0;">
                                 <textarea class="cs-input config-input" id="customLayoutRow4" rows="2"
                                     spellcheck="false"></textarea>
                                 <button class="cs-btn" style="max-width: 40px;" id="addKey4">+</button>
@@ -740,7 +775,7 @@
                         </div>
                         <div class="cs-form-group">
                             <label class="cs-input__label" for="customLayoutRow5">space row</label>
-                            <div class="nested-grid-2" style="grid-template-columns: repeat(2, 86%); margin-top: 0px;">
+                            <div class="nested-grid-2" style="grid-template-columns: repeat(2, 86%); margin-top: 0;">
                                 <textarea class="cs-input config-input" id="customLayoutRow5" rows="2"
                                     spellcheck="false"></textarea>
                                 <button class="cs-btn" style="max-width: 40px;" id="addKey5">+</button>
@@ -748,7 +783,7 @@
                         </div>
                         <div class="cs-form-group">
                             <label class="cs-input__label" for="customLayoutMouse">mouse row</label>
-                            <div class="nested-grid-2" style="grid-template-columns: repeat(2, 86%); margin-top: 0px;">
+                            <div class="nested-grid-2" style="grid-template-columns: repeat(2, 86%); margin-top: 0;">
                                 <textarea class="cs-input config-input" id="customLayoutMouse" rows="2"
                                     spellcheck="false"></textarea>
                                 <button class="cs-btn" style="max-width: 40px;" id="addKeyMouse">+</button>
@@ -795,6 +830,7 @@
                                 <select class="cs-select config-input" id="fontfamily"
                                     style="max-height: 22px; font-size: 12px; margin-top:4px">
                                     <option value="">system default</option>
+                                    <option value="Borevs">Borevs</option>
                                     <option value="bitcount-prop-single">Bitcount Prop Single</option>
                                     <option value="bungee">Bungee</option>
                                     <option value="comfortaa">Comfortaa</option>
@@ -940,7 +976,22 @@
                                     value="100">
                                 <label for="gapmodifier">gap</label>
                             </div>
-                            <div class="cs-form-group"></div>
+                            <div class="cs-form-group">
+                                <div class="cs-form-group">
+                                    <div class="cs-checkbox">
+                                        <input type="checkbox" class="config-input" id="analogmode">
+                                        <label for="analogmode" class="cs-checkbox__label">
+                                            <div class="cs-tooltip">
+                                                analog mode
+                                                <span style="bottom: 100%; width: 160px; left: 50%; margin-left: -80px"
+                                                    class="text">
+                                                    [!] requires standalone ws-server (see instructions)
+                                                </span>
+                                            </div>
+                                        </label>
+                                    </div>
+                                </div>
+                            </div>
                             <div class="cs-form-group">
                                 <label class="cs-input__label" for="inactivecolorhex">inactive font color</label>
                                 <div class="color-input-group">
@@ -1100,7 +1151,7 @@
             </div>
 
             <div class="cs-form-group" id="popupScrollerLabels" style="display: none;">
-                <label class="cs-input__label">SCROLLER LABELS</label>
+                <label class="cs-input__label" for="popupScrollerDefault">SCROLLER LABELS</label>
                 <input class="cs-input" id="popupScrollerDefault" type="text" placeholder="Default (e.g., -)"
                     style="margin-bottom: 5px;">
                 <input class="cs-input" id="popupScrollerUp" type="text" placeholder="Up (e.g., ↑)"
@@ -1152,19 +1203,27 @@
             });
         });
 
-        const TARGET_WIDTH = 2560;
         function setDynamicScale() {
-            const currentWidth = window.innerWidth;
-            const configuratorEl = document.getElementById('configurator');
+            const container = document.getElementById('inner-overlay-container');
+            if (!container) return;
 
-            if (configuratorEl) {
-                let scaleFactor = currentWidth / TARGET_WIDTH;
-                configuratorEl.style.transform = `scale(${scaleFactor})`;
-            }
+            const naturalWidth = container.offsetWidth;
+            const naturalHeight = container.offsetHeight;
+
+            const viewportWidth = window.innerWidth;
+            const viewportHeight = window.innerHeight;
+
+            const scaleX = viewportWidth / naturalWidth;
+            const scaleY = viewportHeight / naturalHeight;
+            const scale = Math.min(scaleX, scaleY) * 0.5;
+
+            container.style.transform = `translate(50%, 50%) scale(${scale})`;
+            container.style.transformOrigin = "top left";
         }
 
-        //setDynamicScale();
         //window.addEventListener('resize', setDynamicScale);
+        //window.addEventListener('load', setDynamicScale);
+        //setDynamicScale();
     </script>
 </body>
 

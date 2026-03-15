@@ -55,6 +55,7 @@ export class ConfiguratorMode {
             hidemouse: false,
             hidescrollcombo: false,
             boldfont: true,
+            analogmode: false,
             gapmodifier: "100",
             customLayoutRow1: DEFAULT_LAYOUT_STRINGS.row1,
             customLayoutRow2: DEFAULT_LAYOUT_STRINGS.row2,
@@ -95,6 +96,7 @@ export class ConfiguratorMode {
             hidemouse: document.getElementById("hidemouse").checked,
             hidescrollcombo: document.getElementById("hidescrollcombo").checked,
             boldfont: document.getElementById("boldfont") ? document.getElementById("boldfont").checked : false,
+            analogmode: document.getElementById("analogmode") ? document.getElementById("analogmode").checked : false,
 
             gapmodifier: document.getElementById("gapmodifier") ? document.getElementById("gapmodifier").value : "100",
 
@@ -169,6 +171,7 @@ export class ConfiguratorMode {
         applyValue("hidemouse", settings.hidemouse);
         applyValue("hidescrollcombo", settings.hidescrollcombo);
         applyValue("boldfont", settings.boldfont);
+        applyValue("analogmode", settings.analogmode);
 
         applyValue("customLayoutRow1", settings.customLayoutRow1 !== undefined ? settings.customLayoutRow1 : "");
         applyValue("customLayoutRow2", settings.customLayoutRow2 !== undefined ? settings.customLayoutRow2 : "");
@@ -183,7 +186,7 @@ export class ConfiguratorMode {
     updateState(settings = null) {
         if (!settings) settings = this.getCurrentSettings();
 
-        this.visualizer.applyStyles(settings);
+        this.visualizer.applyStyles(settings, true);
         this.visualizer.rebuildInterface(settings);
 
         clearTimeout(this.urlDebounceTimer);
@@ -386,6 +389,7 @@ export class ConfiguratorMode {
                     this.updateSliderLabel(input);
                 else if (input.classList.contains("color-hex-input"))
                     return;
+
                 this.updateState();
             });
         });

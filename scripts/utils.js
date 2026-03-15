@@ -1,5 +1,5 @@
 //guh
-import {FONT_FAMILY_LINKS} from "./consts.js";
+import { FONT_FAMILY_LINKS } from "./consts.js";
 
 export class Utils {
     hexToRgba(hex, alpha = 1) {
@@ -25,10 +25,8 @@ export class Utils {
 
         if (!fontKey) {
             document.head.querySelectorAll("link[href*='fonts.googleapis']").forEach(el => el.remove());
-
             const oldStyle = document.getElementById(STYLE_ID);
             if (oldStyle) oldStyle.remove();
-
             return;
         }
 
@@ -36,12 +34,42 @@ export class Utils {
 
         if (!fontUrl && fontKey.startsWith("https://fonts.googleapis.com/")) {
             fontUrl = fontKey;
+        } else if (!fontUrl && (fontKey.startsWith("data:font/") || fontKey.startsWith("data:application/font"))) {
+            fontUrl = fontKey;
         } else if (!fontUrl) {
             document.head.querySelectorAll("link[href*='fonts.googleapis']").forEach(el => el.remove());
-
             const oldStyle = document.getElementById(STYLE_ID);
             if (oldStyle) oldStyle.remove();
+            return;
+        }
 
+        if (fontUrl.startsWith("data:font/") || fontUrl.startsWith("data:application/font")) {
+            const formatMatch = fontUrl.match(/data:[^/]+\/([^;]+);base64,/);
+            const format = formatMatch ? formatMatch[1] : "truetype";
+            const fontName = "custom-b64-font";
+
+            document.head.querySelectorAll("link[href*='fonts.googleapis']").forEach(el => el.remove());
+
+            let styleTag = document.getElementById(STYLE_ID);
+            if (!styleTag) {
+                styleTag = document.createElement("style");
+                styleTag.id = STYLE_ID;
+                document.head.appendChild(styleTag);
+            }
+
+            styleTag.textContent = `
+            @font-face {
+                font-family: "${fontName}";
+                src: url("${fontUrl}") format("${format}");
+                font-weight: normal;
+                font-style: normal;
+            }
+
+            .scroll-display,
+            .key {
+                font-family: "${fontName}", sans-serif !important;
+            }
+        `;
             return;
         }
 
@@ -64,7 +92,6 @@ export class Utils {
         document.head.appendChild(link);
 
         let styleTag = document.getElementById(STYLE_ID);
-
         if (!styleTag) {
             styleTag = document.createElement("style");
             styleTag.id = STYLE_ID;
