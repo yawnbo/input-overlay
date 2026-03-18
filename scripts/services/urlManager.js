@@ -80,10 +80,6 @@ export class UrlManager {
             params.push("boldfont=1");
         }
 
-        if (settings.analogmode === true || settings.analogmode === "true" || settings.analogmode === "1") {
-            params.push("analogmode=1");
-        }
-
         if (settings.hidemouse === true || settings.hidemouse === "true" || settings.hidemouse === "1") {
             params.push("hidemouse=1");
         }
@@ -135,7 +131,6 @@ export class UrlManager {
                     opacity: decompressedParams.get("opacity") || "100",
                     fontfamily: decompressedParams.get("fontfamily") || "",
                     boldfont: decompressedParams.get("boldfont") === "1",
-                    analogmode: decompressedParams.get("analogmode") === "1",
                     hidemouse: decompressedParams.get("hidemouse") === "1",
                     hidescrollcombo: decompressedParams.get("hidescrollcombo") === "1",
                     customLayoutRow1: decompressedParams.has("customLayoutRow1") ? decompressedParams.get("customLayoutRow1") : DEFAULT_LAYOUT_STRINGS.row1,
@@ -167,7 +162,6 @@ export class UrlManager {
             opacity: params.get("opacity") || "100",
             fontfamily: params.get("fontfamily") || "",
             boldfont: params.get("boldfont") === "1",
-            analogmode: params.get("analogmode") === "1",
             hidemouse: params.get("hidemouse") === "1",
             hidescrollcombo: params.get("hidescrollcombo") === "1",
             customLayoutRow1: params.has("customLayoutRow1") ? params.get("customLayoutRow1") : DEFAULT_LAYOUT_STRINGS.row1,

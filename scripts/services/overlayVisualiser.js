@@ -47,6 +47,10 @@ export class OverlayVisualiser {
                     afterStyle.remove();
                 }
                 el.style.setProperty('transform', 'scale(1)', 'important');
+                const primaryLabel = el.querySelector('.key-label-primary');
+                if (primaryLabel) {
+                    primaryLabel.style.color = '';
+                }
             } else {
                 const animDur = this.animDuration || '0.15s';
                 el.style.setProperty('transition', `all ${animDur} cubic-bezier(0.4,0,0.2,1)`, 'important');
@@ -70,12 +74,13 @@ export class OverlayVisualiser {
         const activeColorForGradient = activeColorRgb.replace(/, [\d.]+?\)/, ", 0.3)");
         const fontWeight = opts.boldfont ? 999 : 1;
         const gapModifier = (opts.gapmodifier / 100).toFixed(2);
-        this.analogMode = (opts.analogmode === true || opts.analogmode === "true" || opts.analogmode === "1") && !configMode;
         this.pressScaleValue = pressscalevalue;
         this.animDuration = animDuration;
         this.activeColor = opts.activecolor;
         this.activeBgColor = opts.activebgcolor;
         this.glowRadius = opts.glowradius;
+        this.inactiveColor = opts.inactivecolor;
+        this.fontColor = opts.fontcolor;
 
         this.utils.applyFontStyles(opts.fontfamily);
 
@@ -134,14 +139,17 @@ export class OverlayVisualiser {
                 position: relative;
                 z-index: 2;
             }
+            .key-label-primary {
+                position: relative;
+                z-index: 2;
+                pointer-events: none;
+            }
             .key.active, .mouse-btn.active, .scroll-display.active {
                 color: ${opts.fontcolor} !important;
                 transform: ${activeTransform} !important;
-                /* Fix: Ensure border and glow apply to analog keys too */
                 border-color: ${opts.activecolor} !important;
                 box-shadow: 0 2px ${opts.glowradius}px ${opts.activecolor} !important;
             }
-            /* Fix: Only apply solid background to non-analog active keys */
             .key.active:not(.analog-key), .mouse-btn.active:not(.analog-key), .scroll-display.active:not(.analog-key) {
                 background: ${opts.activebgcolor} !important;
             }
@@ -211,8 +219,14 @@ export class OverlayVisualiser {
         let baseClass = "key";
 
         el.className = baseClass + (elementDef.class ? " " + elementDef.class : "");
-        if (elementDef.label !== undefined && elementDef.label !== null) el.innerHTML = elementDef.label;
         el.dataset.key = elementDef.key;
+
+        if (elementDef.label !== undefined && elementDef.label !== null) {
+            const primaryLabel = document.createElement("span");
+            primaryLabel.className = "key-label-primary";
+            primaryLabel.innerHTML = elementDef.label;
+            el.appendChild(primaryLabel);
+        }
 
         return el;
     }
@@ -456,7 +470,8 @@ export class OverlayVisualiser {
     adjustKeyFontSizes() {
         document.querySelectorAll(".key").forEach(key => {
             key.style.fontSize = "";
-            const textWidth = this.utils.measureTextWidth(key);
+            const labelEl = key.querySelector('.key-label-primary') || key;
+            const textWidth = this.utils.measureTextWidth(labelEl);
             const containerWidth = key.clientWidth - 24;
 
             if (textWidth > containerWidth) {
