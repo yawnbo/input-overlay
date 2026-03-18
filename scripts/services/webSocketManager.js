@@ -339,7 +339,7 @@ export class WebSocketManager {
 
             const primaryLabel = el.querySelector('.key-label-primary');
             if (primaryLabel) {
-                const colorT = Math.min(1, depth * 3);
+                const colorT = Math.min(1, depth * 1);
                 const interpolated = this.lerpColor(
                     this.visualizer.inactiveColor,
                     this.visualizer.fontColor,
