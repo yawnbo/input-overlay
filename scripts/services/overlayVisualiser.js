@@ -687,9 +687,12 @@ export class OverlayVisualiser {
 
             el.style.setProperty('transform', `scale(${scale})`, 'important');
 
+            const isDigitallyPressed = this.activeKeys.has(keyName);
             const fillHeight = effectiveDepth * 100;
-            const borderWidth = unpressedWidth + (pressedWidth - unpressedWidth) * Math.min(1, depth * 3);
-            const outerGlow = effectiveDepth > 0 ? `0 2px ${glowRadius} ${this.activeColor}` : 'none';
+            const borderWidth = isDigitallyPressed
+                ? unpressedWidth + (pressedWidth - unpressedWidth) * Math.min(1, depth * 3)
+                : unpressedWidth;
+            const outerGlow = isDigitallyPressed && effectiveDepth > 0 ? `0 2px ${glowRadius} ${this.activeColor}` : 'none';
 
             el.style.setProperty('border-width', `${borderWidth}px`, 'important');
 
@@ -698,7 +701,7 @@ export class OverlayVisualiser {
                     height: ${fillHeight}% !important;
                 }
                 [data-key="${el.dataset.key || keyName}"].analog-key {
-                    border-color: ${this.activeColor} !important;
+                    border-color: ${isDigitallyPressed ? this.activeColor : 'inherit'} !important;
                     box-shadow: ${outerGlow} !important;
                 }
             `;

@@ -179,12 +179,7 @@ export class WebSocketManager {
                     elements.forEach(el => {
                         this.visualizer.updateElementState(el, keyName, isActive, activeSet);
 
-                        if (this.visualizer.analogMode && type === "key" && keyName.startsWith("key_")) {
-                            const depth = this.keyDepths[keyId];
-                            if (depth !== undefined && depth > 0) {
-                                this.handleAnalogDepth({ event_type: "analog_depth", depth, rawcode: parseInt(keyId.substring(2)) });
-                            }
-                        } else if (type === "mouse") {
+                        if (type === "mouse") {
                             if (isActive) {
                                 const animDur = this.visualizer.animDuration || '0.15s';
                                 el.style.setProperty('transition', `all ${animDur} cubic-bezier(0.4,0,0.2,1)`, 'important');
