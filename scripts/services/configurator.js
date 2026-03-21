@@ -52,7 +52,7 @@ export class ConfiguratorMode {
             borderradius: "1",
             pressscale: "110",
             animationspeed: "300",
-            fontfamily: "",
+            fontfamily: "ArialPixel",
             hidemouse: false,
             hidescrollcombo: false,
             boldfont: true,
