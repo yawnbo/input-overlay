@@ -54,12 +54,13 @@ class InputOverlayServer:
         self.analog_thread = None
         self._analog_running = False
         self.key_whitelist = []
+        self.balloon_notifications = True
         self.config_path = "config.json"
         self.config_last_modified = 0
         self.analog_buffer = {}
 
     def show_toast_notification(self, title: str, message: str, duration: str = "short"):
-        if not TOAST_AVAILABLE:
+        if not TOAST_AVAILABLE or not self.balloon_notifications:
             return
         try:
             icon_path = get_resource_path("assets/icon.ico")
@@ -91,7 +92,10 @@ class InputOverlayServer:
                     "auth_token": random_token,
                     "analog_enabled": False,
                     "analog_device": None,
-                    "key_whitelist": []
+                    "key_whitelist": [],
+                    "balloon_notifications": True,
+                    "dismissed_versions": [],
+                    "cpu_affinity": [0, 1]
                 }
                 with open(config_file, 'w') as f:
                     json.dump(default_config, f, indent=4)
@@ -119,6 +123,7 @@ class InputOverlayServer:
                     self.analog_enabled = config.get('analog_enabled', False)
                     self.analog_device = config.get('analog_device', None)
                     self.key_whitelist = config.get('key_whitelist', [])
+                    self.balloon_notifications = config.get('balloon_notifications', True)
                     
                     logger.info(f"settings updated - analog: {self.analog_enabled}, device: {self.analog_device}")
                     logger.info(f"whitelist: {len(self.key_whitelist)} keys")
@@ -371,9 +376,9 @@ class InputOverlayServer:
                             madlions_buffer = {}
                             madlions_offset = [0]
                             if pid in [0x1055, 0x1056, 0x105D]:
-                                madlions_layout_size = 5 * 14  # MAD60HE
+                                madlions_layout_size = 5 * 14           
                             else:
-                                madlions_layout_size = 5 * 15  # MAD68HE / MAD68R
+                                madlions_layout_size = 5 * 15                    
                             init_buf = [0x00] * 32
                             init_buf[0:8] = [0x02, 0x96, 0x1C, 0x00, 0x00, 0x00, 0x00, 0x04]
                             device.write(init_buf)
@@ -394,7 +399,7 @@ class InputOverlayServer:
                             device.write([0x09] + list(poll_payload))
                             logger.info("bytech initial poll sent")
                             import time as _time
-                            POLL_INTERVAL = 0.008 #125hz
+                            POLL_INTERVAL = 0.008       
                             last_poll = _time.monotonic()
                             while self._analog_running:
                                 try:
@@ -957,16 +962,18 @@ def run_settings_editor_subprocess(config_path="config.json"):
     try:
         if getattr(sys, 'frozen', False):
             exe_path = sys.executable
-            subprocess.Popen([exe_path, "--settings", config_path])
+            proc = subprocess.Popen([exe_path, "--settings", config_path])
             logger.info("launched settings editor (exe)")
         else:
             script_path = Path(__file__).parent / "services" / "settings.py"
-            subprocess.Popen([sys.executable, str(script_path), config_path])
+            proc = subprocess.Popen([sys.executable, str(script_path), config_path])
             logger.info("launched settings editor (script)")
+        return proc
     except Exception as e:
         logger.error(f"failed to launch settings editor: {e}")
         import traceback
         traceback.print_exc()
+        return None
 
 
 def main():
@@ -990,6 +997,13 @@ def main():
         run_settings_editor(config_path)
         return
 
+    if len(sys.argv) >= 2 and sys.argv[1] == "--update-popup":
+        latest = sys.argv[2] if len(sys.argv) >= 3 else ""
+        config_path = sys.argv[3] if len(sys.argv) >= 4 else "config.json"
+        from services.settings import _run_update_popup_process
+        _run_update_popup_process(latest, config_path)
+        return
+
     server = InputOverlayServer()
     config = server.load_config()
     server.host = config.get('host', 'localhost')
@@ -998,17 +1012,45 @@ def main():
     server.analog_enabled = config.get('analog_enabled', False)
     server.analog_device = config.get('analog_device', None)
     server.key_whitelist = config.get('key_whitelist', [])
-    
+    server.balloon_notifications = config.get('balloon_notifications', True)
+
+    if sys.platform == 'win32':
+        cpu_affinity = config.get('cpu_affinity', [0, 1])
+        if isinstance(cpu_affinity, list) and cpu_affinity:
+            mask = 0
+            for core in cpu_affinity:
+                mask |= (1 << core)
+            import ctypes
+            ctypes.windll.kernel32.SetProcessAffinityMask(
+                ctypes.windll.kernel32.GetCurrentProcess(), mask
+            )
+
     server_thread = threading.Thread(target=run_server, args=(server,), daemon=True)
     server_thread.start()
+
+    child_processes = []
+    settings_proc = [None]
+
+    from services.settings import check_for_updates_on_startup
+    check_for_updates_on_startup("config.json", child_processes)
 
     def on_quit(icon, item):
         logger.info("shutting down...")
         server.stop()
+        for proc in child_processes:
+            try:
+                proc.terminate()
+            except Exception:
+                pass
         icon.stop()
-    
+
     def on_settings(icon, item):
-        run_settings_editor_subprocess("config.json")
+        if settings_proc[0] is not None and settings_proc[0].poll() is None:
+            return
+        proc = run_settings_editor_subprocess("config.json")
+        if proc:
+            settings_proc[0] = proc
+            child_processes.append(proc)
 
     def create_menu():
         return pystray.Menu(
