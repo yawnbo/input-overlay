@@ -70,7 +70,7 @@ class InputOverlayServer:
                 msg=message,
                 icon=str(icon_path) if icon_path.exists() else ""
             )
-            toast.set_audio(audio.Default, loop=False)
+            toast.set_audio(audio.Reminder, loop=False)
             toast.show()
         except Exception as e:
             logger.error(f"failed to show toast notification: {e}")
