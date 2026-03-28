@@ -265,7 +265,7 @@ export const DEFAULT_LAYOUT_STRINGS = {
     row3: "key_leftshift:\"SHIFT\":u2, key_a:\"A\", key_s:\"S\", key_d:\"D\", key_f:\"F\"",
     row4: "",
     row5: "key_leftctrl:\"CTRL\":u1-5, key_leftalt:\"ALT\":u1-5, key_space:\"SPACE\":u3-33",
-    mouse: "mouse_left:\"M1\":u2-47, scroller:\"M3\":\"🡅\":\"🡇\", mouse_right:\"M2\":u2-47"
+    mouse: "mouse_left:\"M1\":u2-47, scroller:\"M3\":\"🡅\":\"🡇\", mouse_right:\"M2\":u2-47,mouse_pad:u5:u3-46:a-bl"
 };
 
 export const COLOR_PICKERS = [
