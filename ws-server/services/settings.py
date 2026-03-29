@@ -4,6 +4,7 @@ import json
 import logging
 import winreg
 import threading
+import subprocess
 from pathlib import Path
 from PyQt6.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout, 
                              QHBoxLayout, QPushButton, QLabel, QScrollArea, QFrame,
@@ -272,40 +273,23 @@ def is_autostart_enabled() -> bool:
         return False
 
 def set_autostart(enabled: bool):
-                                                          
     try:
         lnk_path = get_startup_shortcut_path()
         if enabled:
-            import win32com.client                                                  
-            shell = win32com.client.Dispatch("WScript.Shell")
-            shortcut = shell.CreateShortCut(str(lnk_path))
-            shortcut.Targetpath = str(get_exe_path())
-            shortcut.WorkingDirectory = str(get_exe_path().parent)
-            shortcut.IconLocation = str(get_exe_path())
-            shortcut.save()
-            logger.info(f"autostart shortcut created: {lnk_path}")
-        else:
-            if lnk_path.exists():
-                lnk_path.unlink()
-                logger.info(f"autostart shortcut removed: {lnk_path}")
-    except ImportError:
-        if enabled:
             exe = str(get_exe_path()).replace("'", "''")
-            lnk = str(get_startup_shortcut_path()).replace("'", "''")
+            lnk = str(lnk_path).replace("'", "''")
             ps_cmd = (
                 f"$s=(New-Object -COM WScript.Shell).CreateShortcut('{lnk}');"
                 f"$s.TargetPath='{exe}';"
                 f"$s.WorkingDirectory='{str(get_exe_path().parent)}';"
                 f"$s.Save()"
             )
-            import subprocess
             subprocess.run(
                 ["powershell", "-NoProfile", "-NonInteractive", "-Command", ps_cmd],
-                capture_output=True
+                capture_output=True,
+                creationflags=subprocess.CREATE_NO_WINDOW
             )
-            logger.info(f"autostart shortcut created via PowerShell: {lnk}")
         else:
-            lnk_path = get_startup_shortcut_path()
             if lnk_path.exists():
                 lnk_path.unlink()
     except Exception as e:
@@ -707,7 +691,6 @@ class SettingsEditor(QMainWindow):
 
         app_group = QGroupBox("APPLICATION")
         app_layout = QVBoxLayout()
-        app_layout.setSpacing(8)
 
         self.balloon_checkbox = QCheckBox("Enable balloon notifications")
         self.balloon_checkbox.setChecked(self.balloon_enabled)
@@ -728,14 +711,16 @@ class SettingsEditor(QMainWindow):
         about_h_layout = QHBoxLayout()
 
         links_container = QVBoxLayout()
-        self.version_label = QLabel(f"Input-Overlay WebSocket Server | Version: {WS_SERVER_VERSION}")
+        self.version_label = QLabel(f"Input-Overlay WebSocket Server | Version: {WS_SERVER_VERSION}<br>(latest)")
         self.version_label.setStyleSheet("color: #a0aa95; font-weight: normal;")
         self.version_label.setOpenExternalLinks(True)
+        self.version_label.setMinimumHeight(32)
+        links_container.addSpacing(-8)
         links_container.addWidget(self.version_label)
 
         links = [
             ("GitHub",        "https://github.com/girlglock/input-overlay"),
-            ("Twitter",       "https://twitter.com/girlglock"),
+            ("Twitter",       "https://twitter.com/girlglock_"),
             ("girlglock.com", "https://girlglock.com"),
             (" ", " "),
             (" ", " "),
@@ -819,8 +804,7 @@ class SettingsEditor(QMainWindow):
     def _on_update_available(self, latest_version: str, release_body: str):
         self._latest_version = latest_version
         self.version_label.setText(
-            f'Input-Overlay WebSocket Server | Version: {WS_SERVER_VERSION} '
-            f'(<a href="{GITHUB_RELEASES_URL}" style="color: #c4b550;">New version: {latest_version} available</a>)'
+            f'Input-Overlay WebSocket Server | Version: {WS_SERVER_VERSION}<br>(<a href="{GITHUB_RELEASES_URL}" style="color: #c4b550;">New version: {latest_version} available</a>)'
         )
 
     def toggle_token_visibility(self):

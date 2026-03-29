@@ -17,6 +17,8 @@ jobs:
     steps:
       - name: checkout code
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: setup py
         uses: actions/setup-python@v5
@@ -39,6 +41,14 @@ jobs:
         with:
           subject-path: input-overlay-ws-windows.zip
 
+      - name: get previous tag
+        id: prev_tag
+        run: |
+          $prev = git describe --tags --abbrev=0 HEAD^ 2>$null
+          if ($LASTEXITCODE -ne 0) { $prev = "" }
+          echo "tag=$prev" >> $env:GITHUB_OUTPUT
+        shell: pwsh
+
       - name: make release
         uses: softprops/action-gh-release@v2
         with:
@@ -46,14 +56,16 @@ jobs:
             input-overlay-ws-windows.zip
           body: |
             ## input-overlay websocket server ${{ github.ref_name }}
-            
-            **windows:**
+            **patchnotes:**
+            -
+
+            **setup:**
             - download `input-overlay-ws-windows.zip`
             - unzip and run `input-overlay-ws.exe`
             - Right-click the tray icon for settings
-            
+
             ---
-            
-            [CHANGELOG.md](https://github.com/${{ github.repository }}/compare/${{ github.event.before }}...${{ github.ref_name }}) for details on what's new in this release.
+
+            ${{ steps.prev_tag.outputs.tag != '' && format('[CHANGELOG]({0}/{1}/compare/{2}...{3})', github.server_url, github.repository, steps.prev_tag.outputs.tag, github.ref_name) || 'First release.' }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

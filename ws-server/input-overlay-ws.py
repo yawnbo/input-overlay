@@ -108,7 +108,7 @@ class InputOverlayServer:
                     "key_whitelist": [],
                     "balloon_notifications": True,
                     "dismissed_versions": [],
-                    "raw_mouse_enabled": False,
+                    "raw_mouse_enabled": True,
                     "raw_mouse_min_delta": 0,
                     "cpu_affinity": [0, 1]
                 }
