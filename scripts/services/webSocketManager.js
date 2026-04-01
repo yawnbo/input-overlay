@@ -53,7 +53,7 @@ export class WebSocketManager {
 
     connect() {
         this.connectionAttempts++;
-        this.statusEl.textContent = `connecting to ${this.wsUrl} (attempt ${this.connectionAttempts})...`;
+        this.statusEl.textContent = `connecting... (attempt ${this.connectionAttempts})...`;
         this.statusEl.className = "status connecting";
 
         this.ws = new WebSocket(this.wsUrl);
