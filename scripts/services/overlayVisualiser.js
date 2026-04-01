@@ -29,7 +29,7 @@ export class OverlayVisualiser {
         this.MOUSEPAD_TRAIL_PX = 2.5;
         this.MOUSEPAD_SENSITIVITY = 1.0;
         this.MOUSEPAD_MODE = "wrap";
-        this.MOUSEPAD_TRAIL_LENGTH = 500;
+        this.MOUSEPAD_TRAIL_LENGTH = 150;
         this.MOUSEPAD_M1_HIGHLIGHT = false;
         this.MOUSEPAD_BG_TEXTURE = "";
         this.MOUSEPAD_SHOW_DISTANCE = false;
@@ -791,7 +791,7 @@ export class OverlayVisualiser {
             if (this.MOUSEPAD_SHOW_DISTANCE) this._mousePadTotalDistancePx += Math.sqrt(dx * dx + dy * dy);
             const prevDist = this.mousePadTrail.length > 0 ? (this.mousePadTrail[this.mousePadTrail.length - 1].d || 0) : 0;
             this.mousePadTrail.push({ dx: movX, dy: movY, t: now, m1: m1Active, d: prevDist + segLen });
-            const maxDist = this.MOUSEPAD_TRAIL_LENGTH || 500;
+            const maxDist = this.MOUSEPAD_TRAIL_LENGTH || 150;
             while (this.mousePadTrail.length > 1) {
                 const tipDist = this.mousePadTrail[this.mousePadTrail.length - 1].d;
                 if (tipDist - this.mousePadTrail[0].d > maxDist) this.mousePadTrail.shift();
@@ -815,7 +815,7 @@ export class OverlayVisualiser {
                 if (this.mousePadTrail[i] !== null) { prevDist = this.mousePadTrail[i].d || 0; break; }
             }
             this.mousePadTrail.push({ x: this.mousePadCursorX, y: this.mousePadCursorY, t: now, m1: m1Active, d: prevDist + segLen });
-            const maxDist = this.MOUSEPAD_TRAIL_LENGTH || 500;
+            const maxDist = this.MOUSEPAD_TRAIL_LENGTH || 150;
             const tip = this.mousePadTrail[this.mousePadTrail.length - 1];
             const tipD = tip ? tip.d : 0;
             while (this.mousePadTrail.length > 1) {

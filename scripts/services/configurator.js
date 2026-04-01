@@ -208,7 +208,7 @@ export class ConfiguratorMode {
         applyValue("mousetrailsensitivity", settings.mousetrailsensitivity ?? "100");
         applyValue("mousetrailfadeout", settings.mousetrailfadeout ?? "600");
         applyValue("mousetrailmode", settings.mousetrailmode ?? "wrap");
-        applyValue("mousetraillength", settings.mousetraillength ?? "500");
+        applyValue("mousetraillength", settings.mousetraillength ?? "150");
         applyValue("mousetrailm1highlight", settings.mousetrailm1highlight ?? false);
         applyValue("mousepadtexture", settings.mousepadtexture ?? "");
     }
