@@ -71,6 +71,8 @@ export class ConfiguratorMode {
             mousetraillength: "150",
             mousetrailm1highlight: false,
             mousepadtexture: "",
+            showmousedistance: false,
+            mousedistancedpi: "400",
         });
     }
 
@@ -124,6 +126,8 @@ export class ConfiguratorMode {
             mousetraillength: val("mousetraillength") || "150",
             mousetrailm1highlight: chk("mousetrailm1highlight"),
             mousepadtexture: val("mousepadtexture"),
+            showmousedistance: chk("showmousedistance"),
+            mousedistancedpi: val("mousedistancedpi") || "400",
         };
     }
 
@@ -143,6 +147,9 @@ export class ConfiguratorMode {
         }
         if (id === "mousetraillength") {
             label.textContent = input.value + "pts"; return;
+        }
+        if (id === "mousedistancedpi") {
+            label.textContent = input.value + " DPI"; return;
         }
 
         let suffix = "", val = input.value;
@@ -211,6 +218,8 @@ export class ConfiguratorMode {
         applyValue("mousetraillength", settings.mousetraillength ?? "150");
         applyValue("mousetrailm1highlight", settings.mousetrailm1highlight ?? false);
         applyValue("mousepadtexture", settings.mousepadtexture ?? "");
+        applyValue("showmousedistance", settings.showmousedistance ?? false);
+        applyValue("mousedistancedpi", settings.mousedistancedpi ?? "400");
     }
 
     updateState(settings = null) {
@@ -361,6 +370,17 @@ export class ConfiguratorMode {
         const savedAuth = localStorage.getItem("overlay_wsauth");
         if (savedAuth && !wsauthEl.value) wsauthEl.value = savedAuth;
         wsauthEl.addEventListener("input", () => localStorage.setItem("overlay_wsauth", wsauthEl.value));
+
+        const distanceCheckbox = document.getElementById("showmousedistance");
+        const dpiSlider = document.getElementById("mousedistancedpi");
+        const dpiLabel = document.getElementById("mousedistancedpivalue");
+        const syncDpiState = () => {
+            const enabled = distanceCheckbox?.checked ?? false;
+            if (dpiSlider) { dpiSlider.disabled = !enabled; dpiSlider.style.opacity = enabled ? "1" : "0.5"; }
+            if (dpiLabel) dpiLabel.style.opacity = enabled ? "1" : "0.4";
+        };
+        distanceCheckbox?.addEventListener("change", syncDpiState);
+        syncDpiState();
 
         document.getElementById("copybtn").addEventListener("click", this.copyLink.bind(this));
         document.getElementById("loadbtn").addEventListener("click", this.loadSettingsFromLink.bind(this));
