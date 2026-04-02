@@ -835,12 +835,6 @@ export class OverlayVisualiser {
         if (!this.mousePadCtx || !this.mousePadCanvas) return;
 
         const now = performance.now();
-        const elapsed = now - (this._mousePadLastFrameTime || 0);
-        if (elapsed < 16.67) {
-            this.mousePadRafId = requestAnimationFrame(this._mousePadRafLoop);
-            return;
-        }
-        this._mousePadLastFrameTime = now;
 
         const ctx = this.mousePadCtx;
         const W = parseFloat(this.mousePadCanvas.dataset.logicalW) || this.mousePadCanvas.width;
@@ -905,29 +899,15 @@ export class OverlayVisualiser {
                 }
             }
         }
-        if (this.mousePadTrail.length > 0) {
-            let eatLastPoint = null;
-            let eatFirstPoint = null;
-            for (let i = this.mousePadTrail.length - 1; i >= 0; i--) { if (this.mousePadTrail[i] !== null) { eatLastPoint = this.mousePadTrail[i]; break; } }
-            for (let i = 0; i < this.mousePadTrail.length; i++) { if (this.mousePadTrail[i] !== null) { eatFirstPoint = this.mousePadTrail[i]; break; } }
-            if (eatLastPoint && eatFirstPoint) {
-                const idleMs = now - eatLastPoint.t;
-                if (maxAge > 0 && idleMs > 0) {
-                    const eatFrac = Math.min(1, idleMs / maxAge);
-                    const actualLen = eatLastPoint.d - eatFirstPoint.d;
-                    const keepFrom = eatLastPoint.d - actualLen * (1 - eatFrac);
-                    while (this.mousePadTrail.length > 1) {
-                        const first = this.mousePadTrail[0];
-                        if (first === null) {
-                            const next = this.mousePadTrail[1];
-                            if (next === null || (next.d !== undefined && next.d < keepFrom)) this.mousePadTrail.shift();
-                            else break;
-                        } else if (first.d !== undefined && first.d < keepFrom) {
-                            this.mousePadTrail.shift();
-                        } else break;
-                    }
-                }
+        if (this.mousePadTrail.length > 0 && maxAge > 0) {
+            const cutoff = now - maxAge;
+            let firstValid = 0;
+            while (firstValid < this.mousePadTrail.length) {
+                const p = this.mousePadTrail[firstValid];
+                if (p === null || p.t >= cutoff) break;
+                firstValid++;
             }
+            if (firstValid > 0) this.mousePadTrail.splice(0, firstValid);
         }
 
         const trail = this.mousePadTrail;
@@ -1010,6 +990,15 @@ export class OverlayVisualiser {
             ctx.fill();
         };
 
+        const drawTip = (tip) => {
+            if (!tip) return;
+            const tipM1 = this.MOUSEPAD_M1_HIGHLIGHT && tip.m1;
+            ctx.beginPath();
+            ctx.arc(tip.x, tip.y, trailPx * (tipM1 ? 1.5 : 1) * 1.2, 0, Math.PI * 2);
+            ctx.fillStyle = tipM1 ? this._mousePadColorBright(1) : this._mousePadColor(1);
+            ctx.fill();
+        };
+
         if (this.MOUSEPAD_MODE === "pan" && totalLen > 0) {
             const pts = new Array(totalLen);
             let cx = W / 2, cy = H / 2;
@@ -1019,16 +1008,18 @@ export class OverlayVisualiser {
                 cx -= fwd.dx; cy -= fwd.dy;
                 pts[i] = { x: cx, y: cy, m1: trail[i].m1, d: trail[i].d };
             }
-            drawSmoothedRun(pts);
+            if (pts.length === 1) drawTip(pts[0]);
+            else drawSmoothedRun(pts);
 
         } else {
             let run = [];
             for (let i = 0; i < trail.length; i++) {
                 const p = trail[i];
-                if (p === null) { drawSmoothedRun(run); run = []; }
+                if (p === null) { if (run.length === 1) drawTip(run[0]); else drawSmoothedRun(run); run = []; }
                 else run.push(p);
             }
-            drawSmoothedRun(run);
+            if (run.length === 1) drawTip(run[0]);
+            else drawSmoothedRun(run);
         }
 
         ctx.restore();
