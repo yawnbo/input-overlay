@@ -931,7 +931,7 @@ export class OverlayVisualiser {
         const TAPER_PTS = 12;
 
         let _dbgStrokes = 0;
-        const drawSmoothedRun = (pts) => {
+        const drawSmoothedRun = (pts, fade = 1) => {
             if (pts.length < 2) return;
             const taperEnd = Math.min(pts.length - 1, TAPER_PTS);
             const strokeRange = (fromIdx, toIdx, width, color) => {
@@ -954,7 +954,7 @@ export class OverlayVisualiser {
             for (let i = 0; i < taperEnd; i++) {
                 const isM1 = this.MOUSEPAD_M1_HIGHLIGHT && (pts[i].m1 || pts[i + 1].m1);
                 const baseWidth = trailPx * (isM1 ? 1.5 : 1);
-                const color = isM1 ? this._mousePadColorBright(1) : this._mousePadColor(1);
+                const color = isM1 ? this._mousePadColorBright(fade) : this._mousePadColor(fade);
                 const w = baseWidth * (i + 1) / taperTotal;
                 _dbgStrokes++;
                 const p0 = pts[Math.max(0, i - 1)], p1 = pts[i], p2 = pts[i + 1], p3 = pts[Math.min(pts.length - 1, i + 2)];
@@ -975,7 +975,7 @@ export class OverlayVisualiser {
                     const m1 = this.MOUSEPAD_M1_HIGHLIGHT && pts[i].m1;
                     if (m1 !== groupM1 || i === pts.length - 1) {
                         const bw = trailPx * (groupM1 ? 1.5 : 1);
-                        const col = groupM1 ? this._mousePadColorBright(1) : this._mousePadColor(1);
+                        const col = groupM1 ? this._mousePadColorBright(fade) : this._mousePadColor(fade);
                         strokeRange(groupStart, i, bw, col);
                         groupStart = i;
                         groupM1 = m1;
@@ -986,16 +986,16 @@ export class OverlayVisualiser {
             const tipM1 = this.MOUSEPAD_M1_HIGHLIGHT && tip.m1;
             ctx.beginPath();
             ctx.arc(tip.x, tip.y, trailPx * (tipM1 ? 1.5 : 1) * 1.2, 0, Math.PI * 2);
-            ctx.fillStyle = tipM1 ? this._mousePadColorBright(1) : this._mousePadColor(1);
+            ctx.fillStyle = tipM1 ? this._mousePadColorBright(fade) : this._mousePadColor(fade);
             ctx.fill();
         };
 
-        const drawTip = (tip) => {
+        const drawTip = (tip, fade = 1) => {
             if (!tip) return;
             const tipM1 = this.MOUSEPAD_M1_HIGHLIGHT && tip.m1;
             ctx.beginPath();
             ctx.arc(tip.x, tip.y, trailPx * (tipM1 ? 1.5 : 1) * 1.2, 0, Math.PI * 2);
-            ctx.fillStyle = tipM1 ? this._mousePadColorBright(1) : this._mousePadColor(1);
+            ctx.fillStyle = tipM1 ? this._mousePadColorBright(fade) : this._mousePadColor(fade);
             ctx.fill();
         };
 
@@ -1008,18 +1008,18 @@ export class OverlayVisualiser {
                 cx -= fwd.dx; cy -= fwd.dy;
                 pts[i] = { x: cx, y: cy, m1: trail[i].m1, d: trail[i].d };
             }
-            if (pts.length === 1) drawTip(pts[0]);
-            else drawSmoothedRun(pts);
+            if (pts.length === 1) drawTip(pts[0], idleFade);
+            else drawSmoothedRun(pts, idleFade);
 
         } else {
             let run = [];
             for (let i = 0; i < trail.length; i++) {
                 const p = trail[i];
-                if (p === null) { if (run.length === 1) drawTip(run[0]); else drawSmoothedRun(run); run = []; }
+                if (p === null) { if (run.length === 1) drawTip(run[0], idleFade); else drawSmoothedRun(run, idleFade); run = []; }
                 else run.push(p);
             }
-            if (run.length === 1) drawTip(run[0]);
-            else drawSmoothedRun(run);
+            if (run.length === 1) drawTip(run[0], idleFade);
+            else drawSmoothedRun(run, idleFade);
         }
 
         ctx.restore();
@@ -1052,14 +1052,14 @@ export class OverlayVisualiser {
         }
 
         const fullyFaded = !noFadeout && lastPoint !== null && (now - lastPoint.t) >= maxAge;
-        if (fullyFaded) this.mousePadTrail = [];
         if (this.mousePadTrail.length > 0 && this.mousePadTrail.every(p => p === null)) this.mousePadTrail = [];
         const trailEmpty = this.mousePadTrail.length === 0;
-        const hasLiveTrail = !trailEmpty && (!fullyFaded && (noFadeout ? true : idleFade > 0)) || (this.MOUSEPAD_SHOW_DISTANCE && !trailEmpty);
+        const hasLiveTrail = (!trailEmpty && (noFadeout ? true : idleFade > 0)) || (this.MOUSEPAD_SHOW_DISTANCE && !trailEmpty);
 
         if (hasLiveTrail)
             this.mousePadRafId = requestAnimationFrame(this._mousePadRafLoop);
         else {
+            if (fullyFaded) this.mousePadTrail = [];
             this.mousePadTrail = [];
             if (this.MOUSEPAD_MODE !== "pan") {
                 this.mousePadCursorX = null;

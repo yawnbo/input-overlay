@@ -76,7 +76,8 @@
                     <button class="cfg-btn" id="loadbtn">⟳ load url</button>
                     <button class="cfg-btn cfg-btn--share" id="copysharebtn">⎘ copy to share</button>
                     <button class="cfg-btn cfg-btn--accent" id="copybtn">⎘ copy url</button>
-                    <button class="cfg-btn cfg-btn--accent" id="downloadbtn" style="display:none;">⬇ download html</button>
+                    <button class="cfg-btn cfg-btn--accent" id="downloadbtn" style="display:none;">⬇ download
+                        html</button>
                 </div>
                 <div id="authwarning" class="cfg-auth-warning" style="display:none;">
                     ⚠ copy url includes your auth token, don't share it publicly. use copy to share instead
@@ -97,7 +98,8 @@
                                 <blockquote class="note note--purple">(you can change it to whatever you like)
                                 </blockquote>
                                 <li>paste the token in the auth token field above</li>
-                                <li>configure your overlay to your liking, then click the <code>⎘ copy url</code> button and paste the copied url as an OBS
+                                <li>configure your overlay to your liking, then click the <code>⎘ copy url</code> button
+                                    and paste the copied url as an OBS
                                     browser source</li>
                             </ol>
                             <blockquote class="note note--purple">tip: you can configure the key whitelist in the
@@ -301,8 +303,11 @@
                             <h3>overlay</h3>
                             <ul>
                                 <li>upped max fps of the mouse_pad element to 120 from 60</li>
-                                <li>copy url button now turns automatically into download html if address is non localhost</li>
+                                <li>copy url button now turns automatically into download html if address is non
+                                    localhost</li>
                                 <li>added explicit copy to share button</li>
+                                <li>fix mouse_pad trail fadeout</li>
+                                <li>increase max dpi from 3200 to 32000 for mouse distance tracking</li>
                             </ul>
                             <h1>2026-04-02</h1>
                             <h3>overlay</h3>
@@ -664,11 +669,11 @@
                             <div class="cfg-slider-pair">
                                 <div class="cfg-slider-field">
                                     <div class="cfg-slider-header">
-                                        <label class="cfg-label" for="mousetrailsensitivity">sensitivity</label>
-                                        <span class="cfg-slider-val" id="mousetrailsensitivityvalue">1.0x</span>
+                                        <label class="cfg-label" for="mousetraillength">trail length</label>
+                                        <span class="cfg-slider-val" id="mousetraillengthvalue">150pts</span>
                                     </div>
-                                    <input id="mousetrailsensitivity" class="cfg-range config-input" type="range"
-                                        min="1" max="5000" step="5" value="100">
+                                    <input id="mousetraillength" class="cfg-range config-input" type="range" min="10"
+                                        max="1000" step="10" value="150">
                                 </div>
                                 <div class="cfg-slider-field">
                                     <div class="cfg-slider-header">
@@ -682,11 +687,11 @@
                             <div class="cfg-section" style="margin-top:8px;">
                                 <div class="cfg-slider-field">
                                     <div class="cfg-slider-header">
-                                        <label class="cfg-label" for="mousetraillength">trail length</label>
-                                        <span class="cfg-slider-val" id="mousetraillengthvalue">150pts</span>
+                                        <label class="cfg-label" for="mousetrailsensitivity">sensitivity</label>
+                                        <span class="cfg-slider-val" id="mousetrailsensitivityvalue">1.0x</span>
                                     </div>
-                                    <input id="mousetraillength" class="cfg-range config-input" type="range" min="10"
-                                        max="1000" step="10" value="150">
+                                    <input id="mousetrailsensitivity" class="cfg-range config-input" type="range"
+                                        min="1" max="5000" step="5" value="100">
                                 </div>
                                 <div class="cfg-slider-pair">
                                     <div class="cfg-field" id="mousepadtexture-field" style="margin-top:8px;">
@@ -724,7 +729,7 @@
                                             DPI</span>
                                     </div>
                                     <input id="mousedistancedpi" class="cfg-range config-input" type="range" min="100"
-                                        max="3200" step="50" value="400" disabled>
+                                        max="32000" step="50" value="400" disabled>
                                 </div>
                             </div>
 
