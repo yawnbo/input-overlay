@@ -1,5 +1,10 @@
 from __future__ import annotations
 
+import sys
+
+if sys.platform != 'win32':
+    raise ImportError("rawinputbuffer is only supported on bimbows")
+
 import ctypes
 import ctypes.wintypes as wt
 import logging
@@ -62,34 +67,51 @@ class RAWINPUT(ctypes.Structure):
 
 _user32   = ctypes.windll.user32
 _kernel32 = ctypes.windll.kernel32
-_WNDPROC  = ctypes.WINFUNCTYPE(ctypes.c_long, wt.HWND, wt.UINT, wt.WPARAM, wt.LPARAM)
 
-# 64bit sigs
+_LRESULT = ctypes.c_longlong
+_WNDPROC = ctypes.WINFUNCTYPE(_LRESULT, wt.HWND, wt.UINT, wt.WPARAM, wt.LPARAM)
+
 _kernel32.GetModuleHandleW.restype  = ctypes.c_void_p
 _kernel32.GetModuleHandleW.argtypes = [wt.LPCWSTR]
 
 _user32.CreateWindowExW.restype  = wt.HWND
 _user32.CreateWindowExW.argtypes = [
-    wt.DWORD,    # dwExStyle
-    wt.LPCWSTR,  # lpClassName
-    wt.LPCWSTR,  # lpWindowName
-    wt.DWORD,    # dwStyle
-    ctypes.c_int, ctypes.c_int, ctypes.c_int, ctypes.c_int,  # X, Y, nWidth, nHeight
-    wt.HWND,     # hWndParent
-    wt.HANDLE,   # hMenu
-    ctypes.c_void_p,  # hInstance // needs to be void_p
-    ctypes.c_void_p,  # lpParam
+    wt.DWORD,
+    wt.LPCWSTR,
+    wt.LPCWSTR,
+    wt.DWORD,
+    ctypes.c_int, ctypes.c_int, ctypes.c_int, ctypes.c_int,
+    wt.HWND,
+    wt.HANDLE,
+    ctypes.c_void_p,
+    ctypes.c_void_p,
+]
+
+_user32.DefWindowProcW.restype  = _LRESULT
+_user32.DefWindowProcW.argtypes = [wt.HWND, wt.UINT, wt.WPARAM, wt.LPARAM]
+
+_user32.GetRawInputData.restype  = wt.UINT
+_user32.GetRawInputData.argtypes = [
+    wt.HANDLE,
+    wt.UINT,
+    ctypes.c_void_p,
+    ctypes.POINTER(wt.UINT),
+    wt.UINT,
 ]
 
 
 def _get_raw_input(lParam: int) -> RAWINPUT | None:
     buf_size = wt.UINT(0)
-    _user32.GetRawInputData(lParam, RID_INPUT, None, ctypes.byref(buf_size), ctypes.sizeof(RAWINPUTHEADER))
+    ret = _user32.GetRawInputData(lParam, RID_INPUT, None, ctypes.byref(buf_size), ctypes.sizeof(RAWINPUTHEADER))
+    if ret != 0:
+        logger.debug("raw_mouse: GetRawInputData (size query) returned %d, expected 0", ret)
     if buf_size.value == 0:
+        logger.warning("raw_mouse: GetRawInputData reported 0 buffer size")
         return None
     buf = ctypes.create_string_buffer(buf_size.value)
     filled = _user32.GetRawInputData(lParam, RID_INPUT, buf, ctypes.byref(buf_size), ctypes.sizeof(RAWINPUTHEADER))
     if filled != buf_size.value:
+        logger.warning("raw_mouse: GetRawInputData size mismatch (got %d, expected %d)", filled, buf_size.value)
         return None
     return RAWINPUT.from_buffer_copy(buf)
 
@@ -105,6 +127,7 @@ class RawMouseThread(threading.Thread):
         self._lock = threading.Lock()
         self._accum_dx = 0
         self._accum_dy = 0
+        self._filtered_count = 0
 
     def stop(self):
         if self._hwnd:
@@ -113,20 +136,28 @@ class RawMouseThread(threading.Thread):
 
     def run(self):
         try:
+            logger.debug("raw_mouse: thread starting, registering window class")
             self._hwnd = self._create_window()
             if not self._hwnd:
-                logger.error("raw_mouse: CreateWindowEx failed (error %d)", ctypes.windll.kernel32.GetLastError())
+                logger.error("raw_mouse: CreateWindowEx failed (error %d)", _kernel32.GetLastError())
                 return
+            logger.debug("raw_mouse: window created (hwnd=0x%x)", self._hwnd)
+
             if not self._register():
-                logger.error("raw_mouse: RegisterRawInputDevices failed (error %d)", ctypes.windll.kernel32.GetLastError())
+                logger.error("raw_mouse: RegisterRawInputDevices failed (error %d)", _kernel32.GetLastError())
                 _user32.DestroyWindow(self._hwnd)
                 return
-            logger.info("raw_mouse: listener started (hwnd=0x%x)", self._hwnd)
-            threading.Thread(target=self._flush_loop, daemon=True, name="RawMouseFlush").start()
+            logger.info("raw_mouse: listener started (hwnd=0x%x, min_delta=%d)", self._hwnd, self._min_delta)
+
+            flush_thread = threading.Thread(target=self._flush_loop, daemon=True, name="RawMouseFlush")
+            flush_thread.start()
+            logger.debug("raw_mouse: flush loop thread started (tid=%d, hz=%d)", flush_thread.ident, self.FLUSH_HZ)
+
             self._pump()
         except Exception:
-            logger.exception("raw_mouse: unhandled error")
+            logger.exception("raw_mouse: unhandled error in run()")
         finally:
+            logger.debug("raw_mouse: cleaning up")
             self._unregister()
             if self._hwnd:
                 _user32.DestroyWindow(self._hwnd)
@@ -135,6 +166,7 @@ class RawMouseThread(threading.Thread):
 
     def _flush_loop(self):
         interval = 1.0 / self.FLUSH_HZ
+        logger.debug("raw_mouse: flush loop running (interval=%.4fs)", interval)
         while True:
             time.sleep(interval)
             with self._lock:
@@ -172,7 +204,12 @@ class RawMouseThread(threading.Thread):
         wc.lpfnWndProc   = self._wnd_proc_ref
         wc.hInstance     = _kernel32.GetModuleHandleW(None)
         wc.lpszClassName = class_name
-        _user32.RegisterClassExW(ctypes.byref(wc))
+
+        atom = _user32.RegisterClassExW(ctypes.byref(wc))
+        if atom == 0:
+            logger.warning("raw_mouse: RegisterClassExW returned 0 (error %d) - class may already exist", _kernel32.GetLastError())
+        else:
+            logger.debug("raw_mouse: window class registered (atom=0x%x)", atom)
 
         hwnd = _user32.CreateWindowExW(
             WS_EX_TOOLWINDOW | WS_EX_NOACTIVATE,
@@ -180,6 +217,10 @@ class RawMouseThread(threading.Thread):
             0, 0, 0, 0,
             None, None, wc.hInstance, None,
         )
+        if hwnd:
+            logger.debug("raw_mouse: message window created successfully")
+        else:
+            logger.error("raw_mouse: CreateWindowExW returned NULL (error %d)", _kernel32.GetLastError())
         return hwnd or None
 
     def _register(self) -> bool:
@@ -188,7 +229,12 @@ class RawMouseThread(threading.Thread):
         rid.usUsage     = 0x02
         rid.dwFlags     = RIDEV_INPUTSINK
         rid.hwndTarget  = self._hwnd
-        return bool(_user32.RegisterRawInputDevices(ctypes.byref(rid), 1, ctypes.sizeof(RAWINPUTDEVICE)))
+        result = bool(_user32.RegisterRawInputDevices(ctypes.byref(rid), 1, ctypes.sizeof(RAWINPUTDEVICE)))
+        if result:
+            logger.debug("raw_mouse: RegisterRawInputDevices succeeded (INPUTSINK on hwnd=0x%x)", self._hwnd)
+        else:
+            logger.error("raw_mouse: RegisterRawInputDevices failed (error %d)", _kernel32.GetLastError())
+        return result
 
     def _unregister(self):
         rid = RAWINPUTDEVICE()
@@ -196,7 +242,11 @@ class RawMouseThread(threading.Thread):
         rid.usUsage     = 0x02
         rid.dwFlags     = RIDEV_REMOVE
         rid.hwndTarget  = None
-        _user32.RegisterRawInputDevices(ctypes.byref(rid), 1, ctypes.sizeof(RAWINPUTDEVICE))
+        result = bool(_user32.RegisterRawInputDevices(ctypes.byref(rid), 1, ctypes.sizeof(RAWINPUTDEVICE)))
+        if result:
+            logger.debug("raw_mouse: unregistered raw input device")
+        else:
+            logger.warning("raw_mouse: unregister failed (error %d)", _kernel32.GetLastError())
 
     def _pump(self):
         class MSG(ctypes.Structure):
@@ -206,22 +256,37 @@ class RawMouseThread(threading.Thread):
                 ("time",    wt.DWORD),  ("pt",      wt.POINT),
             ]
 
+        logger.debug("raw_mouse: entering message pump")
         msg = MSG()
+        msg_count = 0
         while _user32.GetMessageW(ctypes.byref(msg), None, 0, 0) > 0:
+            msg_count += 1
+            if msg_count <= 5:
+                logger.debug("raw_mouse: pump received message #%d (msg=0x%x)", msg_count, msg.message)
             _user32.TranslateMessage(ctypes.byref(msg))
             _user32.DispatchMessageW(ctypes.byref(msg))
+        logger.debug("raw_mouse: message pump exited (total messages processed: %d)", msg_count)
 
     def _on_wm_input(self, lParam: int):
         ri = _get_raw_input(lParam)
-        if ri is None or ri.header.dwType != RIM_TYPEMOUSE:
+        if ri is None:
+            logger.debug("raw_mouse: _get_raw_input returned None")
+            return
+        if ri.header.dwType != RIM_TYPEMOUSE:
+            logger.debug("raw_mouse: ignoring non-mouse rawinput (dwType=%d)", ri.header.dwType)
             return
         m = ri.data.mouse
         if m.usFlags & 0x0001:
+            logger.debug("raw_mouse: ignoring absolute mouse event (usFlags=0x%x)", m.usFlags)
             return
         dx, dy = m.lLastX, m.lLastY
         if dx == 0 and dy == 0:
             return
         if abs(dx) + abs(dy) < self._min_delta:
+            self._filtered_count += 1
+            if self._filtered_count % 500 == 1:
+                logger.debug("raw_mouse: %d events filtered by min_delta=%d (latest dx=%d dy=%d)",
+                             self._filtered_count, self._min_delta, dx, dy)
             return
         with self._lock:
             self._accum_dx += dx

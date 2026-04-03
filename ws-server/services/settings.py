@@ -2,7 +2,6 @@ import os
 import sys
 import json
 import logging
-import winreg
 import threading
 import subprocess
 from pathlib import Path
@@ -10,9 +9,10 @@ from PyQt6.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout,
                              QHBoxLayout, QPushButton, QLabel, QScrollArea, QFrame,
                              QLineEdit, QCheckBox, QComboBox, QGroupBox, QDialog,
                              QDialogButtonBox, QTextEdit)
-from PyQt6.QtCore import Qt, pyqtSignal, QObject, QThread, QPoint
+from PyQt6.QtCore import Qt, pyqtSignal, QObject, QThread, QPoint, QEvent
 from PyQt6.QtGui import QIcon, QMovie, QDesktopServices, QFontDatabase
 from PyQt6.QtCore import QUrl
+from PyQt6.QtWidgets import QToolTip
 from pynput import keyboard, mouse
 
 try:
@@ -241,10 +241,18 @@ QTextEdit {
 #CloseBtn:pressed {
     border-color: #292c21 #8c9284 #8c9284 #292c21;
 }
+
+QToolTip {
+    background-color: #958831;
+    color: #000000;
+    border: 1px solid #292c21;
+    padding: 2px 2px 1px;
+    font-size: 16px;
+    font-family: "ArialPixel", "Arial", sans-serif;
+}
 """
 
 def get_resource_path(relative_path):
-                                               
     try:
         base_path = sys._MEIPASS
     except Exception:
@@ -252,48 +260,91 @@ def get_resource_path(relative_path):
     return Path(base_path) / relative_path
 
 def get_exe_path() -> Path:
-                                                                       
     if getattr(sys, 'frozen', False):
         return Path(sys.executable)
     return Path(__file__).parent.parent / "input-overlay-ws.py"
 
 def get_startup_shortcut_path() -> Path:
-                                                                        
-    import winreg as _wr
-    key = _wr.OpenKey(_wr.HKEY_CURRENT_USER, r"Software\Microsoft\Windows\CurrentVersion\Explorer\Shell Folders")
-    startup_dir = _wr.QueryValueEx(key, "Startup")[0]
-    _wr.CloseKey(key)
-    return Path(startup_dir) / "input-overlay-ws.lnk"
+    if sys.platform == 'win32':
+        import winreg as _wr
+        key = _wr.OpenKey(_wr.HKEY_CURRENT_USER, r"Software\Microsoft\Windows\CurrentVersion\Explorer\Shell Folders")
+        startup_dir = _wr.QueryValueEx(key, "Startup")[0]
+        _wr.CloseKey(key)
+        return Path(startup_dir) / "input-overlay-ws.lnk"
+    elif sys.platform.startswith('linux'):
+        autostart_dir = Path.home() / ".config" / "autostart"
+        autostart_dir.mkdir(parents=True, exist_ok=True)
+        return autostart_dir / "input-overlay-ws.desktop"
+    else:
+        raise NotImplementedError(f"autostart not supported on whatever this is {sys.platform}")
 
 def is_autostart_enabled() -> bool:
     try:
-        lnk = get_startup_shortcut_path()
-        return lnk.exists()
+        return get_startup_shortcut_path().exists()
     except Exception:
         return False
 
 def set_autostart(enabled: bool):
     try:
-        lnk_path = get_startup_shortcut_path()
-        if enabled:
-            exe = str(get_exe_path()).replace("'", "''")
-            lnk = str(lnk_path).replace("'", "''")
-            ps_cmd = (
-                f"$s=(New-Object -COM WScript.Shell).CreateShortcut('{lnk}');"
-                f"$s.TargetPath='{exe}';"
-                f"$s.WorkingDirectory='{str(get_exe_path().parent)}';"
-                f"$s.Save()"
-            )
-            subprocess.run(
-                ["powershell", "-NoProfile", "-NonInteractive", "-Command", ps_cmd],
-                capture_output=True,
-                creationflags=subprocess.CREATE_NO_WINDOW
-            )
+        target = get_startup_shortcut_path()
+        if sys.platform == 'win32':
+            if enabled:
+                exe = str(get_exe_path()).replace("'", "''")
+                lnk = str(target).replace("'", "''")
+                ps_cmd = (
+                    f"$s=(New-Object -COM WScript.Shell).CreateShortcut('{lnk}');"
+                    f"$s.TargetPath='{exe}';"
+                    f"$s.WorkingDirectory='{str(get_exe_path().parent)}';"
+                    f"$s.Save()"
+                )
+                subprocess.run(
+                    ["powershell", "-NoProfile", "-NonInteractive", "-Command", ps_cmd],
+                    capture_output=True,
+                    creationflags=subprocess.CREATE_NO_WINDOW
+                )
+            else:
+                if target.exists():
+                    target.unlink()
+        elif sys.platform.startswith('linux'):
+            if enabled:
+                exe_path = get_exe_path()
+                desktop_content = (
+                    "[Desktop Entry]\n"
+                    "Type=Application\n"
+                    "Name=Input Overlay Server\n"
+                    f"Exec={exe_path}\n"
+                    f"Path={exe_path.parent}\n"
+                    "Hidden=false\n"
+                    "NoDisplay=false\n"
+                    "X-GNOME-Autostart-enabled=true\n"
+                )
+                target.write_text(desktop_content)
+            else:
+                if target.exists():
+                    target.unlink()
         else:
-            if lnk_path.exists():
-                lnk_path.unlink()
+            logger.warning(f"set_autostart: unsupported platform {sys.platform}")
     except Exception as e:
         logger.error(f"set_autostart error: {e}")
+
+class InstantTooltipCheckBox(QCheckBox):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.setMouseTracking(True)
+        self._tooltip_shown = False
+
+    def event(self, e):
+        if e.type() == QEvent.Type.HoverEnter:
+            QToolTip.showText(self.mapToGlobal(self.rect().center()), self.toolTip(), self)
+            self._tooltip_shown = True
+            return True
+        if e.type() == QEvent.Type.HoverLeave:
+            QToolTip.hideText()
+            self._tooltip_shown = False
+            return True
+        if e.type() == QEvent.Type.ToolTip:
+            return True
+        return super().event(e)
 
 class TitleBar(QWidget):
     def __init__(self, title: str, parent_window, minimizable: bool = True):
@@ -342,11 +393,10 @@ class TitleBar(QWidget):
 
 
 class UpdateChecker(QObject):
-    update_available = pyqtSignal(str, str) # version, release_body
+    update_available = pyqtSignal(str, str)
     check_done      = pyqtSignal()
 
     def check(self, dismissed: list):
-                                                               
         def _run():
             try:
                 import urllib.request
@@ -578,7 +628,8 @@ class SettingsEditor(QMainWindow):
                 for known_vid, known_pid, name, required_usage in analog_keyboards:
                     if vid == known_vid and (known_pid is None or pid == known_pid):
                         if required_usage is not None and usage_page != required_usage:
-                            continue
+                            if sys.platform == 'win32' or usage_page != 0:
+                                continue
                         if required_usage is None:
                             vidpid_key = (vid, pid)
                             if vidpid_key in seen_vidpid:
@@ -696,12 +747,18 @@ class SettingsEditor(QMainWindow):
         self.balloon_checkbox.setChecked(self.balloon_enabled)
         app_layout.addWidget(self.balloon_checkbox)
 
-        self.autostart_checkbox = QCheckBox("Start with Windows")
+        _autostart_label = "Start with Windows" if sys.platform == 'win32' else "Start on login"
+        self.autostart_checkbox = QCheckBox(_autostart_label)
         self.autostart_checkbox.setChecked(self.autostart_enabled)
         app_layout.addWidget(self.autostart_checkbox)
 
-        self.raw_mouse_checkbox = QCheckBox("Enable RawInputBuffer reads from the Windows API\n(mouse movement for mouse_pad element)")
+        self.raw_mouse_checkbox = InstantTooltipCheckBox("Enable RawInputBuffer reads from the Windows API\n(mouse movement for mouse_pad element)")
+        self.raw_mouse_checkbox.setToolTip("Sometimes requires the ws server to run with admin privileges depending on foreground window privileges")
         self.raw_mouse_checkbox.setChecked(self.raw_mouse_enabled)
+        if sys.platform != 'win32':
+            self.raw_mouse_checkbox.setEnabled(False)
+            self.raw_mouse_checkbox.setChecked(False)
+            self.raw_mouse_checkbox.setToolTip("RawInputBuffer is only available on Windows")
         app_layout.addWidget(self.raw_mouse_checkbox)
 
         app_group.setLayout(app_layout)

@@ -1,6 +1,7 @@
 import asyncio
 import json
 import logging
+import os
 import secrets
 import threading
 import sys
@@ -29,10 +30,109 @@ if sys.platform == 'win32':
 else:
     RAW_MOUSE_AVAILABLE = False
 
-logging.basicConfig(
-    level=logging.DEBUG,
-    format='%(asctime)s - %(levelname)s - %(message)s'
-)
+import re
+import atexit
+import signal
+import traceback as _traceback
+
+_SECRET_PATTERNS = [ #for logging
+    (re.compile(r'(?i)(sec-websocket-key\s*:\s*)(\S{4})\S+'),     r'\g<1>\g<2>****'),
+    (re.compile(r'(?i)(sec-websocket-accept\s*:\s*)(\S{4})\S+'),  r'\g<1>\g<2>****'),
+    (re.compile(r'(?i)(authorization\s*:\s*)(\S{4})\S+'),         r'\g<1>\g<2>****'),
+    (re.compile(r'(?i)(auth[_\-]?token\s*[=:]\s*)(\S{4})\S+'),   r'\g<1>\g<2>****'),
+    (re.compile(r'(?i)(wsauth=)(\S{4})\S+'),                      r'\g<1>\g<2>****'),
+    (re.compile(r'"token"\s*:\s*"([^"]{4})[^"]*"'),               r'"token": "\1****"'),
+    (re.compile(r"'token'\s*:\s*'([^']{4})[^']*'"),               r"'token': '\1****'"),
+]
+
+def _redact(text: str) -> str:
+    for pattern, repl in _SECRET_PATTERNS:
+        text = pattern.sub(repl, text)
+    return text
+
+
+class _RedactingHandler(logging.Handler):
+    def __init__(self, inner: logging.Handler):
+        super().__init__()
+        self.inner = inner
+
+    def setFormatter(self, fmt):
+        self.inner.setFormatter(fmt)
+
+    def emit(self, record: logging.LogRecord):
+        try:
+            msg = self.inner.format(record)
+            msg = _redact(msg)
+            if not msg.strip():
+                return
+            stream = getattr(self.inner, 'stream', None)
+            if stream is not None:
+                stream.write(msg + self.inner.terminator)
+                stream.flush()
+            else:
+                self.inner.emit(record)
+        except Exception:
+            self.handleError(record)
+
+    def flush(self):
+        self.inner.flush()
+
+    def close(self):
+        self.inner.close()
+        super().close()
+
+
+import datetime as _dt
+_logs_dir = (Path(sys.executable).parent if getattr(sys, 'frozen', False) else Path(__file__).parent) / "logs"
+_logs_dir.mkdir(exist_ok=True)
+_LOG_FILE = _logs_dir / f"{_dt.datetime.now().strftime('%Y-%m-%d_%H-%M-%S')}_{os.getpid()}.log"
+_fmt = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
+
+_seen_events: set = set()
+
+_file_handler = _RedactingHandler(logging.FileHandler(_LOG_FILE, mode='w', encoding='utf-8', delay=False))
+_file_handler.inner.setFormatter(_fmt)
+
+_console_handler = _RedactingHandler(logging.StreamHandler(sys.stdout))
+_console_handler.inner.setFormatter(_fmt)
+
+_root = logging.getLogger()
+_root.setLevel(logging.DEBUG)
+_root.addHandler(_file_handler)
+_root.addHandler(_console_handler)
+
+logging.getLogger('websockets').setLevel(logging.DEBUG)
+
+def _flush_log():
+    try:
+        _file_handler.flush()
+        _file_handler.close()
+    except Exception:
+        pass
+
+atexit.register(_flush_log)
+
+def _crash_handler(exc_type, exc_value, exc_tb):
+    logging.getLogger(__name__).critical(
+        "unhandled exception:\n%s",
+        "".join(_traceback.format_exception(exc_type, exc_value, exc_tb))
+    )
+    _flush_log()
+    sys.__excepthook__(exc_type, exc_value, exc_tb)
+
+sys.excepthook = _crash_handler
+
+def _signal_handler(sig, frame):
+    logging.getLogger(__name__).info("received signal %s, shutting down", sig)
+    _flush_log()
+    sys.exit(0)
+
+for _sig in (signal.SIGTERM, signal.SIGINT):
+    try:
+        signal.signal(_sig, _signal_handler)
+    except (OSError, ValueError):
+        pass
+
 logger = logging.getLogger(__name__)
 
 if sys.platform == 'win32':
@@ -222,6 +322,7 @@ class InputOverlayServer:
             self.clients.discard(client)
 
     async def process_message_queue(self):
+        logger.debug("message queue processor started")
         FLUSH_INTERVAL = 1.0 / 125.0
         last_flush = asyncio.get_event_loop().time()
         pending_dx = 0
@@ -252,9 +353,14 @@ class InputOverlayServer:
             except Exception as e:
                 logger.error(f"error processing message queue: {e}")
                 await asyncio.sleep(0.01)
+        logger.debug("message queue processor stopped")
 
     def queue_message(self, message: dict):
         try:
+            event_type = message.get('event_type')
+            if event_type and event_type not in _seen_events:
+                _seen_events.add(event_type)
+                logger.info("%s detected", event_type.replace('_', ' '))
             self.message_queue.put(message)
         except Exception as e:
             logger.error(f"error queuing message: {e}")
@@ -331,20 +437,20 @@ class InputOverlayServer:
 
                         if len(parts) > 2:
                             interface_num = int(parts[2])
-                            logger.info(f"looking for interface {interface_num}")
+                            logger.info(f"looking for analog interface {interface_num}")
 
                             all_devs = hid.enumerate(vid, pid)
                             target_path = None
                             for d in all_devs:
                                 if d.get('interface_number', -1) == interface_num:
                                     target_path = d['path']
-                                    logger.info(f"found interface {interface_num} at path: {target_path}")
+                                    logger.info(f"found analog interface {interface_num} at path: {target_path}")
                                     break
                             
                             if target_path:
                                 device.open_path(target_path)
                             else:
-                                logger.warning(f"interface {interface_num} not found, trying default open")
+                                logger.warning(f"anal interface {interface_num} not found, trying default open")
                                 device.open(vid, pid)
                         else:
                             device.open(vid, pid)
@@ -365,7 +471,7 @@ class InputOverlayServer:
                                     data = device.read(32, timeout_ms=100)
 
                                     if not first_data_logged and data and any(b != 0 for b in data):
-                                        logger.info(f"FIRST DATA RECEIVED: {' '.join(f'{b:02x}' for b in data[:16])}")
+                                        logger.info(f"FIRST analog DATA RECEIVED: {' '.join(f'{b:02x}' for b in data[:16])}")
                                         first_data_logged = True
                                     
                                     if data and len(data) > 0:
@@ -845,7 +951,8 @@ class InputOverlayServer:
                 for known_vid, known_pid, name, required_usage in analog_keyboards:
                     if vid == known_vid and (known_pid is None or pid == known_pid):
                         if required_usage is not None and usage_page != required_usage:
-                            continue
+                            if sys.platform == 'win32' or usage_page != 0:
+                                continue
 
                         if required_usage is None:
                             vidpid_key = (vid, pid)
@@ -880,64 +987,81 @@ class InputOverlayServer:
 
     async def handle_client(self, websocket):
         self.clients.add(websocket)
-        
+
         try:
             remote_address = websocket.remote_address
             client_ip = remote_address[0] if remote_address else "unknown"
             client_port = remote_address[1] if remote_address else "unknown"
-        except:
+        except Exception:
             client_ip = "unknown"
             client_port = "unknown"
-        
+
         try:
             origin = websocket.request.headers.get('Origin', 'N/A')
             user_agent = websocket.request.headers.get('User-Agent', 'N/A')
-        except:
+        except Exception:
             origin = 'N/A'
             user_agent = 'N/A'
-        
+
         logger.info(f"new connection from {client_ip}:{client_port} - origin: {origin}")
-        
+
         try:
             async for message in websocket:
                 try:
                     data = json.loads(message)
-                    if data.get('type') == 'auth':
+                    msg_type = data.get('type')
+                    logger.debug(f"message from {client_ip}:{client_port} - type={msg_type!r}")
+
+                    if msg_type == 'auth':
                         token = data.get('token', '')
-                        if not self.auth_token or token == self.auth_token:
+                        if not token:
+                            logger.warning(f"auth rejected from {client_ip}:{client_port} - no token provided")
+                            await websocket.send(json.dumps({'type': 'auth_response', 'status': 'failed'}))
+                            await websocket.close()
+                        elif not self.auth_token or token == self.auth_token:
                             self.authenticated_clients.add(websocket)
                             await websocket.send(json.dumps({'type': 'auth_response', 'status': 'success'}))
-                            logger.info(f"client authenticated from {client_ip}:{client_port}")
-    
                             client_count = len(self.authenticated_clients)
-                            
+                            logger.info(f"client authenticated from {client_ip}:{client_port} (total authed: {client_count})")
                             self.show_toast_notification(
                                 "a new client connected",
                                 f"origin: {origin}\nuseragent: {user_agent}\nactive connections: {client_count}"
                             )
                         else:
+                            logger.warning(f"auth rejected from {client_ip}:{client_port} - token mismatch")
                             await websocket.send(json.dumps({'type': 'auth_response', 'status': 'failed'}))
-                            logger.warning(f"auth failed from {client_ip}:{client_port}")
-                            
                             self.show_toast_notification(
                                 "authentication failed",
                                 f"ip: {client_ip}:{client_port}\nuseragent: {user_agent}\norigin: {origin}\nreason: bad token"
                             )
-                            
                             await websocket.close()
-                except json.JSONDecodeError:
-                    pass
-        except websockets.exceptions.ConnectionClosed:
-            logger.info(f"connection closed: {client_ip}:{client_port}")
+                    else:
+                        logger.debug(f"unhandled message type {msg_type!r} from {client_ip}:{client_port}")
+
+                except json.JSONDecodeError as e:
+                    logger.warning(f"invalid json from {client_ip}:{client_port}: {e}")
+
+        except websockets.exceptions.ConnectionClosedOK as e:
+            logger.info(f"connection closed cleanly: {client_ip}:{client_port} code={e.code} reason={e.reason!r}")
+        except websockets.exceptions.ConnectionClosedError as e:
+            logger.warning(f"connection closed with error: {client_ip}:{client_port} code={e.code} reason={e.reason!r}")
+        except websockets.exceptions.ConnectionClosed as e:
+            logger.info(f"connection closed: {client_ip}:{client_port} code={e.code} reason={e.reason!r}")
+        except Exception as e:
+            logger.error(f"unexpected error handling {client_ip}:{client_port}: {e}", exc_info=True)
         finally:
-            if websocket in self.authenticated_clients:
-                remaining = len(self.authenticated_clients) - 1
+            was_authed = websocket in self.authenticated_clients
+            self.clients.discard(websocket)
+            self.authenticated_clients.discard(websocket)
+            if was_authed:
+                remaining = len(self.authenticated_clients)
+                logger.info(f"authenticated client disconnected: {client_ip}:{client_port} (remaining: {remaining})")
                 self.show_toast_notification(
                     "client disconnected",
                     f"ip: {client_ip}:{client_port}\nremaining connections: {remaining}"
                 )
-            self.clients.discard(websocket)
-            self.authenticated_clients.discard(websocket)
+            else:
+                logger.debug(f"unauthenticated client removed: {client_ip}:{client_port}")
 
     def start_input_listeners(self):
         self.keyboard_listener = keyboard.Listener(on_press=self.on_key_press, on_release=self.on_key_release)
@@ -964,7 +1088,7 @@ class InputOverlayServer:
         async with websockets.serve(self.handle_client, self.host, self.port):
             logger.info(f"server started on ws://{self.host}:{self.port}")
             if self.auth_token:
-                logger.info(f"auth token: {self.auth_token}")
+                logger.info("auth token: %s", self.auth_token)
             else:
                 logger.warning("auth disabled")
             
@@ -1019,7 +1143,8 @@ def run_server(server):
     try:
         asyncio.run(server.start())
     except OSError as e:
-        if e.errno == 10048:
+        # errno 10048 is win, errno 98 is linux
+        if e.errno in (10048, 98):
             logger.error(f"port {server.port} already in use")
         else:
             logger.error(f"server error: {e}")
@@ -1057,7 +1182,10 @@ def main():
                 root.removeHandler(handler)
             handler = logging.StreamHandler(sys.stdout)
             handler.setFormatter(logging.Formatter('%(asctime)s - %(levelname)s - %(message)s'))
+            handler.addFilter(_RedactingFilter())
             root.addHandler(handler)
+        elif not getattr(sys, 'frozen', False):
+            pass
         logging.getLogger().setLevel(logging.DEBUG)
 
     if len(sys.argv) >= 2 and sys.argv[1] == "--settings":
