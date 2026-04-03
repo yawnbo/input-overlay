@@ -243,26 +243,45 @@ export class ConfiguratorMode {
 
     updateGeneratedLink(settings) {
         const paramsString = this.urlManager.buildURLParams(settings);
+        const safeSettings = { ...settings, wsauth: "" };
+        const safeParamsString = this.urlManager.buildURLParams(safeSettings);
         const base = `${window.location.origin}${window.location.pathname}`;
         const wsParam = `ws=${settings.wsaddress || "localhost"}:${settings.wsport || "16899"}`;
         const linkInput = document.getElementById("generatedlink");
 
         const compressed = this.urlManager.compressSettings(paramsString);
+        const safeCompressed = this.urlManager.compressSettings(safeParamsString);
         if (compressed) {
-            const url = `${base}?cfg=${compressed}`;
-            window.history.replaceState({}, "", url);
-            linkInput.value = `${url}&${wsParam}`;
+            const safeUrl = `${base}?cfg=${safeCompressed}`;
+            window.history.replaceState({}, "", safeUrl);
+            linkInput.value = `${base}?cfg=${compressed}&${wsParam}`;
             console.clear();
             console.log(`compressed params: ${compressed}`);
             console.log(`uncompressed params: ${paramsString}`);
         } else {
-            window.history.replaceState({}, "", `${base}?${paramsString}`);
+            window.history.replaceState({}, "", `${base}?${safeParamsString}`);
             linkInput.value = `${base}?${paramsString}&${wsParam}`;
         }
 
         const container = linkInput.closest(".link-container") || document.querySelector(".link-container");
         container.classList.add("hint");
         setTimeout(() => container.classList.remove("hint"), 1000);
+
+        const isNonLocal = (settings.wsaddress || "localhost") !== "localhost";
+        const copyBtn = document.getElementById("copybtn");
+        const downloadBtn = document.getElementById("downloadbtn");
+        const authWarning = document.getElementById("authwarning");
+
+        if (isNonLocal) {
+            if (copyBtn) copyBtn.style.display = "none";
+            if (downloadBtn) downloadBtn.style.display = "";
+        } else {
+            if (copyBtn) copyBtn.style.display = "";
+            if (downloadBtn) downloadBtn.style.display = "none";
+        }
+
+        const hasAuth = !!(settings.wsauth && settings.wsauth.trim());
+        if (authWarning) authWarning.style.display = hasAuth ? "" : "none";
     }
 
     loadSettingsFromLink(fromCurrentUrl = false) {
@@ -383,7 +402,12 @@ export class ConfiguratorMode {
         syncDpiState();
 
         document.getElementById("copybtn").addEventListener("click", this.copyLink.bind(this));
+        document.getElementById("copysharebtn").addEventListener("click", this.copyShareLink.bind(this));
         document.getElementById("loadbtn").addEventListener("click", this.loadSettingsFromLink.bind(this));
+        document.getElementById("downloadbtn")?.addEventListener("click", (e) => {
+            e.preventDefault();
+            this.downloadOverlayHTML();
+        });
 
         document.getElementById("layoutPresets")?.addEventListener("change", (e) => {
             const presetUrl = e.target.value;
@@ -480,6 +504,34 @@ export class ConfiguratorMode {
             document.execCommand("copy");
         }
         flashBtn(copyBtn, "copied", "⎘ copy url");
+    }
+
+    async copyShareLink() {
+        const shareBtn = document.getElementById("copysharebtn");
+        try {
+            const settings = this.getCurrentSettings();
+            const shareSettings = { ...settings, wsauth: "" };
+            const paramsString = this.urlManager.buildURLParams(shareSettings);
+            const compressed = this.urlManager.compressSettings(paramsString);
+            const base = `${window.location.origin}${window.location.pathname}`;
+            const wsParam = `ws=${settings.wsaddress || "localhost"}:${settings.wsport || "16899"}`;
+            const shareUrl = compressed
+                ? `${base}?cfg=${compressed}&${wsParam}`
+                : `${base}?${paramsString}&${wsParam}`;
+            try {
+                await navigator.clipboard.writeText(shareUrl);
+            } catch {
+                const tmp = document.createElement("textarea");
+                tmp.value = shareUrl;
+                document.body.appendChild(tmp);
+                tmp.select();
+                document.execCommand("copy");
+                document.body.removeChild(tmp);
+            }
+            flashBtn(shareBtn, "copied!", "⎘ copy to share");
+        } catch {
+            flashBtn(shareBtn, "error", "⎘ copy to share");
+        }
     }
 
     setupAnalogSense() {

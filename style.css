@@ -429,6 +429,8 @@ li { margin-bottom: 3px; }
 .cfg-field { margin-bottom: 0px; }
 .cfg-row { display: flex; gap: 8px; }
 .cfg-row--2col > * { flex: 1; min-width: 0; }
+.cfg-btn-grid { flex-wrap: wrap; }
+.cfg-btn-grid > * { flex: 1 1 calc(50% - 4px); min-width: 0; }
 
 .pcr-button {
     max-width: 20px !important;
@@ -482,6 +484,22 @@ li { margin-bottom: 3px; }
 .cfg-btn--accent:hover { background: var(--bg-hover); }
 
 .cfg-btn.copied { color: var(--green); }
+
+.cfg-btn--share {
+  background: var(--bg);
+  border-color: var(--border-light) var(--border-dark) var(--border-dark) var(--border-light);
+  color: var(--green);
+}
+
+.cfg-btn--share:hover { background: var(--bg-hover); color: #fff; }
+
+.cfg-auth-warning {
+  font-size: 10px;
+  color: #e8a838;
+  margin-top: 5px;
+  line-height: 1.4;
+  opacity: 0.85;
+}
 
 .cfg-input {
   width: 100%;
