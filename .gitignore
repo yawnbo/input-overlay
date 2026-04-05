@@ -7,4 +7,4 @@ ws-server/config.json
 ws-server/services/__pycache__
 ws-server/logs/
 ws-server/clients.json
-ws-server/.venv/
+ws-server/venv/

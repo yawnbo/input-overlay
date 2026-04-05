@@ -48,3 +48,27 @@ A input overlay for OBS and other broadcast software.
     <td><img src="https://femboy.beauty/MKZmJt.png" width="400"/></td>
   </tr>
 </table>
+
+## Single PC Setup
+ 
+1. Get the [input-overlay-ws](https://github.com/girlglock/input-overlay/releases) server
+2. Run it and right click the tray icon to open the settings
+3. Copy your auth token
+ 
+   > **Tip:** You can change the token to whatever you like
+ 
+4. Paste the token in the auth token field above
+5. Configure your overlay to your liking, then click the `⎘ Copy URL` button and paste the copied URL as an OBS browser source
+ 
+> **Tip:** You can configure the key whitelist in the server settings to ensure you are only sending keys over your network that are configured in the overlay
+ 
+## Sending Keys to Another PC
+ 
+> e.g. from a gaming PC to a streaming PC
+ 
+1. Edit `config.json` to set the address/port of your gaming PC
+ 
+   > Run `ipconfig` in cmd and copy the local IPv4 address (usually `192.168.0.1` or `192.168.X.X` with X being 0–255)
+ 
+2. Enter the gaming PC's address in both the **input-overlay-ws** and **configurator**
+3. Download the overlay as a local HTML file and add it as a browser source in OBS on your streaming PC instead of copying the URL
