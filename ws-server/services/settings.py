@@ -166,7 +166,7 @@ class SettingsEditor(QMainWindow):
 
     def setup_ui(self) -> None:
         self.setWindowTitle("SETTINGS")
-        self.setFixedSize(1000, 786)
+        self.setFixedSize(1000, 960)
 
         central = QWidget()
         self.setCentralWidget(central)
@@ -217,41 +217,35 @@ class SettingsEditor(QMainWindow):
 
         server_layout.addLayout(server_grid)
 
-        self.http_server_widget = QWidget()
-        http_layout = QVBoxLayout(self.http_server_widget)
-        http_layout.setContentsMargins(0, 8, 0, 0)
-
-        http_lbl = QLabel("Local HTTP Server:")
-        http_lbl.setStyleSheet("color: #a0aa95; font-weight: normal;")
-        http_layout.addWidget(http_lbl)
+        self.http_lbl = QLabel("Local HTTP Server:")
+        self.http_lbl.setStyleSheet("color: #a0aa95; font-weight: normal; margin-top: 8px;")
+        server_layout.addWidget(self.http_lbl)
 
         http_grid = QHBoxLayout()
         http_grid.setSpacing(10)
 
         http_host_col = QVBoxLayout()
-        http_host_lbl = QLabel("Host:")
-        http_host_lbl.setStyleSheet("color: #a0aa95; font-weight: normal;")
-        http_host_col.addWidget(http_host_lbl)
+        self.http_host_lbl = QLabel("Host:")
+        self.http_host_lbl.setStyleSheet("color: #a0aa95; font-weight: normal;")
+        http_host_col.addWidget(self.http_host_lbl)
         self.http_host_display = QLineEdit(self.host)
         self.http_host_display.setReadOnly(True)
         self.http_host_display.setToolTip("Uses the same host as the WebSocket server")
-        self.http_host_display.setStyleSheet("color: #808080;")
         http_host_col.addWidget(self.http_host_display)
         http_grid.addLayout(http_host_col)
 
         http_port_col = QVBoxLayout()
-        http_port_lbl = QLabel("Port:")
-        http_port_lbl.setStyleSheet("color: #a0aa95; font-weight: normal;")
-        http_port_col.addWidget(http_port_lbl)
+        self.http_port_lbl = QLabel("Port:")
+        self.http_port_lbl.setStyleSheet("color: #a0aa95; font-weight: normal;")
+        http_port_col.addWidget(self.http_port_lbl)
         self.http_port_input = QLineEdit(str(self.http_port))
         http_port_col.addWidget(self.http_port_input)
         http_grid.addLayout(http_port_col)
 
-        http_layout.addLayout(http_grid)
-        self.http_server_widget.setVisible(self.http_enabled)
-        server_layout.addWidget(self.http_server_widget)
+        server_layout.addLayout(http_grid)
 
         self.host_input.textChanged.connect(self.http_host_display.setText)
+        self._apply_http_enabled_state(self.http_enabled)
 
         server_group.setLayout(server_layout)
         left_column.addWidget(server_group)
@@ -516,7 +510,22 @@ class SettingsEditor(QMainWindow):
         self.auth_input.setText(secrets.token_urlsafe(32))
 
     def _on_http_toggled(self, state: int) -> None:
-        self.http_server_widget.setVisible(state == Qt.CheckState.Checked.value)
+        self._apply_http_enabled_state(state == Qt.CheckState.Checked.value)
+
+    def _apply_http_enabled_state(self, enabled: bool) -> None:
+        label_style = "color: #a0aa95; font-weight: normal;"
+        self.http_lbl.setStyleSheet(label_style + " margin-top: 8px;")
+        self.http_host_lbl.setStyleSheet(label_style)
+        self.http_port_lbl.setStyleSheet(label_style)
+        if enabled:
+            self.http_host_display.setStyleSheet("")
+            self.http_port_input.setStyleSheet("")
+        else:
+            greyed = "background-color: #3a3a3a; color: #606060;"
+            self.http_host_display.setStyleSheet(greyed)
+            self.http_port_input.setStyleSheet(greyed)
+        self.http_host_display.setEnabled(enabled)
+        self.http_port_input.setEnabled(enabled)
 
     def on_analog_toggled(self, state: int) -> None:
         self.device_combo.setEnabled(state == Qt.CheckState.Checked.value)
