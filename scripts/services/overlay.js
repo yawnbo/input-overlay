@@ -26,7 +26,7 @@ export class OverlayMode {
                 const wsUrl = `ws://${wsAddress}:${wsPort}/`;
                 const wsAuth = settings.wsauth || "";
 
-                this.websocketManager = new WebSocketManager(wsUrl, statusEl, this.visualizer, wsAuth);
+                this.websocketManager = new WebSocketManager(wsUrl, statusEl, this.visualizer, wsAuth, utils);
                 this.websocketManager.connect();
             } else {
                 statusEl.style.display = "none";

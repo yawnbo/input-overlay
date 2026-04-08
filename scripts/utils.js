@@ -6,6 +6,16 @@ export class Utils {
         this._hexCache = new Map();
     }
 
+    _maskAddress(text) {
+        return text.replace(
+            /\b(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})\b/g,
+            (_, a, b, c, d) => `***.***.***.${d}`
+        ).replace(
+            /\b(localhost|[\w-]+\.[\w.-]+)\b(?=:\d)/g,
+            "***"
+        );
+    }
+
     hexToRgba(hex, alpha = 1) {
         if (!hex || !hex.startsWith("#")) return `rgba(0, 0, 0, ${alpha})`;
         hex = hex.toLowerCase();
