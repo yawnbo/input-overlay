@@ -18,11 +18,16 @@
 
 <body>
     <div class="overlay-container" id="overlay">
-        <div class="return status" id="return" style="margin-bottom: 60px">
-            <button class="return-button" style="background: none; border: none; color:aliceblue; cursor:pointer;"
-                id="return-button">edit this overlay</button>
+        <div class="status-wrapper" id="status-wrapper">
+            <div class="return status" id="return">
+                <button class="return-button" style="background: none; border: none; color:aliceblue; cursor:pointer;"
+                    id="return-button">edit this overlay</button>
+            </div>
+            <div class="status" id="status">
+                <div class="status-current" id="status-current">connecting...</div>
+                <div class="status-log" id="status-log"></div>
+            </div>
         </div>
-        <div class="status" id="status">connecting...</div>
         <div class="container" id="inner-overlay-container"
             style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);">
             <div class="top-section">
@@ -293,6 +298,16 @@
                     <label class="cfg-accordion-label" for="acc-patchnotes">patch notes</label>
                     <div class="cfg-accordion-content">
                         <div class="cfg-accordion-inner patchnotes">
+                            <h1>2026-04-09</h1>
+                            <h3>ws server</h3>
+                            <ul>
+                                <li>the ws server will request admin on windows by default</li>
+                                <li>error handling for invalid addresses</li>
+                            </ul>
+                            <h3>overlay</h3>
+                            <ul>
+                                <li>slightly clearer ws related logging inside overlay mode</li>
+                            </ul>
                             <h1>2026-04-05</h1>
                             <h3>ws server</h3>
                             <ul>

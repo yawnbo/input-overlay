@@ -36,25 +36,48 @@ import { RAW_CODE_TO_KEY_NAME, MOUSE_BUTTON_MAP } from "../consts.js";
  */
 
 export class WebSocketManager {
-    constructor(url, statusEl, visualizer, authToken) {
+    constructor(url, statusEl, visualizer, authToken, utils) {
+        this.utils = utils;
         this.wsUrl = url;
         this.statusEl = statusEl;
+        this.statusCurrentEl = statusEl.querySelector("#status-current");
+        this.statusLogEl = statusEl.querySelector("#status-log");
         this.visualizer = visualizer;
         this.authToken = authToken;
         this.ws = null;
         this.connectionAttempts = 0;
         this.authenticated = false;
-
         this.keyStates = {};
         this.keyDepths = {};
         this.messageHistory = [];
         this.HISTORY_MAX_LENGTH = 100;
     }
 
+    _setStatus(text, state) {
+        this.statusCurrentEl.textContent = text;
+        this.statusEl.className = `status ${state}`;
+    }
+    
+    _log(text, level = "") {
+        if (!this.statusLogEl) return;
+        const MAX_ENTRIES = 8;
+        const ts = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+        const entry = document.createElement("div");
+        entry.className = `status-log-entry${level ? ` entry-${level}` : ""}`;
+        entry.textContent = `${ts}  ${this.utils._maskAddress(text)}`;
+        this.statusLogEl.appendChild(entry);
+        while (this.statusLogEl.children.length > MAX_ENTRIES) {
+            this.statusLogEl.removeChild(this.statusLogEl.firstChild);
+        }
+        this.statusLogEl.scrollTop = this.statusLogEl.scrollHeight;
+    }
+
     connect() {
         this.connectionAttempts++;
-        this.statusEl.textContent = `connecting... (attempt ${this.connectionAttempts})...`;
-        this.statusEl.className = "status connecting";
+        const attempt = this.connectionAttempts;
+        this._setStatus(`connecting... (attempt ${attempt})`, "connecting");
+        this._log(`connecting to ${this.wsUrl} (attempt ${attempt})`);
+        console.log(`[ws] connect attempt ${attempt} to ${this.wsUrl}`);
 
         this.ws = new WebSocket(this.wsUrl);
         this.ws.onopen = this._onOpen.bind(this);
@@ -64,11 +87,14 @@ export class WebSocketManager {
     }
 
     _onOpen() {
+        console.log("[ws] connection opened, sending auth");
+        this._log("connection opened, authenticating...");
         this.ws.send(JSON.stringify({ type: "auth", token: this.authToken || "" }));
         this.authenticated = true;
         this.connectionAttempts = 0;
-        this.statusEl.textContent = this.authToken ? "connected (authenticated)" : "connected";
-        this.statusEl.className = "status connected";
+        const msg = this.authToken ? "connected (authenticated)" : "connected";
+        this._setStatus(msg, "connected");
+        this._log(msg, "ok");
         this.clearStuckKeys();
     }
 
@@ -78,10 +104,14 @@ export class WebSocketManager {
 
         if (data.type === "auth_response") {
             if (data.status === "error" || data.status === "failed") {
+                const reason = data.message || "invalid token";
+                console.warn(`[ws] authentication failed: ${reason}`);
+                this._log(`authentication failed: ${reason}`, "error");
                 this.authenticated = false;
-                this.statusEl.textContent = `authentication failed: ${data.message || "invalid token"}`;
-                this.statusEl.className = "status error";
+                this._setStatus(`authentication failed: ${reason}`, "error");
                 this.ws.close();
+            } else {
+                console.log("[ws] authentication ok");
             }
             return;
         }
@@ -89,20 +119,39 @@ export class WebSocketManager {
         if (this.authenticated) this._handleOverlayInput(data);
     }
 
-    _onError() {
-        this.statusEl.textContent = "connection failed";
-        this.statusEl.className = "status error";
+    _onError(event) {
+        console.error("[ws] websocket error", event);
     }
 
     _onClose(event) {
         this.authenticated = false;
+        console.log(`[ws] closed - code: ${event.code}, reason: "${event.reason || "none"}", clean: ${event.wasClean}`);
+
+        const CLOSE_REASONS = {
+            1000: ["closed normally", "error", false],
+            1001: ["server going away", "error", false],
+            1006: ["server unreachable?", "error", true],
+            1008: ["authentication required", "error", false],
+            1011: ["server error", "error", true],
+        };
+
+        const [msg, state, reconnect] = CLOSE_REASONS[event.code] ?? [`disconnected (code ${event.code})`, "connecting", true];
+
         if (event.code === 1008) {
-            this.statusEl.textContent = "connection closed: authentication required";
-            this.statusEl.className = "status error";
+            this._setStatus(`connection closed: ${msg}`, state);
+            this._log(`closed: ${msg}`, "error");
+            console.warn("[ws] not reconnecting: auth required");
             return;
         }
-        this.statusEl.textContent = "disconnected. reconnecting...";
-        this.statusEl.className = "status connecting";
+
+        if (!reconnect) {
+            this._setStatus(msg, state);
+            this._log(msg, "warn");
+            return;
+        }
+
+        this._setStatus(`${msg} - reconnecting...`, "connecting");
+        this._log(`${msg} - reconnecting in 2s`, "warn");
         this.clearStuckKeys();
         setTimeout(() => this.connect(), 2000);
     }
