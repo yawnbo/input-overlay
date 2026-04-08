@@ -746,15 +746,28 @@ class PortErrorDialog(QDialog):
         if error_kind == "denied":
             heading   = QLabel("Port access denied")
             body_text = (
-                f"The server could not bind to <b>{host}:{port}</b> because access was denied.\n\n"
+                f"The ws server could not bind to <b>{host}:{port}</b> because access was denied.\n\n"
                 f"This usually means the port is blocked by a firewall rule or system policy. "
                 f"Try a port above 1024 (eg. 4455) that isn't restricted on your pc."
+            )
+        elif error_kind == "badhost":
+            heading   = QLabel("Invalid hostname")
+            body_text = (
+                f"The ws server could not start because <b>{host}</b> is not a valid hostname "
+                f"or could not be resolved.\n\n"
+                f"Check the host field in Settings... it's usually <b>localhost</b> or <b>0.0.0.0</b> for single pc setups"
+            )
+        elif error_kind == "oserror":
+            heading   = QLabel("Server failed to start")
+            body_text = (
+                f"The ws server could not bind to <b>{host}:{port}</b> due to an unexpected system error.\n\n"
+                f"Check the logs for details, or try changing the host/port in Settings."
             )
         else:
             heading   = QLabel("Port already in use")
             body_text = (
-                f"The server could not bind to <b>{host}:{port}</b> because something else is already using that port.\n\n"
-                f"Close the other application or choose a different port in the overlay and server settings."
+                f"The ws server could not bind to <b>{host}:{port}</b> because something else is already using that port.\n\n"
+                f"Close the other application or choose a different port in the overlay and ws server settings."
             )
 
         heading.setStyleSheet("color: #c4b550; font-weight: bold; font-size: 16px;")
@@ -816,6 +829,10 @@ class RebindFailedDialog(QDialog):
 
         if kind == "inuse":
             reason = f"<b>{failed_host}:{failed_port}</b> is already in use by another application."
+        elif kind == "badhost":
+            reason = f"<b>{failed_host}</b> is not a valid hostname or could not be resolved."
+        elif kind == "oserror":
+            reason = f"Binding to <b>{failed_host}:{failed_port}</b> failed due to a system error."
         else:
             reason = f"Access to <b>{failed_host}:{failed_port}</b> was denied by the system."
 

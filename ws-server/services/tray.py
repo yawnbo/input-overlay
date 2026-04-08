@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import os
+import socket
 import sys
 import threading
 
@@ -31,8 +32,14 @@ def _run_server(server, shutdown_callback=None) -> None:
             logger.error("port %d access denied", server.port)
             proc = spawn_subprocess("--port-error", "denied", server.host, str(server.port), server.config_path)
             _track_child(server, proc)
+        elif isinstance(e, socket.gaierror):
+            logger.error("invalid host %r: %s", server.host, e)
+            proc = spawn_subprocess("--port-error", "badhost", server.host, str(server.port), server.config_path)
+            _track_child(server, proc)
         else:
             logger.exception("server OSError")
+            proc = spawn_subprocess("--port-error", "oserror", server.host, str(server.port), server.config_path)
+            _track_child(server, proc)
     except Exception:
         logger.exception("server error")
 
